@@ -14,7 +14,7 @@ This utility uses ES6 (aka ES2015) features. If you need to support environments
 
 ## At A Glance
 
-**TNG-Hooks** provides a `TNG(..)` utility that wraps regular, stand-alone (non-React) functions, providing them the ability to call `useState(..)` inside them to store persistent (across invocations) state for each function -- essentially the same as [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html) for function components.
+**TNG-Hooks** provides a `TNG(..)` utility that wraps regular, stand-alone (non-React) functions, providing them the ability to call [`useState(..)`](#tng-usestate-hook) inside them to store persistent (across invocations) state for each function -- essentially the same as [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html) for function components.
 
 ```js
 [renderUsername,onClickUsername] = TNG(renderUsername,onClickUsername);
@@ -50,13 +50,13 @@ var user = { shortName: "KS", longName: "Kyle Simpson", };
 renderUsername(user.shortName);
 ```
 
-[Demo](https://codepen.io/getify/pen/dQvEGW?editors=1010)
+**[Run Demo](https://codepen.io/getify/pen/dQvEGW?editors=1010)**
 
 In the above snippet, `activated` is persistent (across invocations) state for the `renderUsername(..)` function, and `expanded` is separate persistent state for the `onClickUsername(..)` function.
 
 **Note:** Since TNG does not currently implement [React's `useEffect(..)` hook](https://reactjs.org/docs/hooks-effect.html), this example is emulating the one-time click handler attachment via a persistent `activated` state.
 
-If `useState(..)` is used inside a non-TNG-wrapped function, it's emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so that function must be called from another TNG-wrapped function; otherwise, an error will be thrown. See [custom hooks](#tng-custom-hooks) below for more information.
+If `useState(..)` is used inside a non-TNG-wrapped function, it's emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so that function must be called from another TNG-wrapped function; otherwise, an error will be thrown. See [TNG Custom Hooks](#tng-custom-hooks) below for more information.
 
 ## Overview
 
@@ -70,7 +70,7 @@ For example:
 // wrap one function at a time
 foo = TNG(foo);
 
-// wrap multiple functions
+// or, wrap multiple functions at once
 [bar,baz] = TNG(bar,baz);
 
 function foo(..) { .. }
@@ -78,7 +78,7 @@ function bar(..) { .. }
 function baz(..) { .. }
 ```
 
-The same function can be TNG wrapped multiple times, with each one getting its own hook context:
+The same function can be TNG-wrapped multiple times, with each one getting its own hook context:
 
 ```js
 function foo(..) { .. }
@@ -99,8 +99,6 @@ The `useState(..)` hook utility allows a function to persist some state across m
 For example:
 
 ```js
-hit = TNG(hit);
-
 function hit() {
     var [count,updateCount] = useState(0);
 
@@ -109,6 +107,8 @@ function hit() {
     console.log(`Hit count: ${count}`);
 }
 
+hit = TNG(hit);
+
 hit();       // Hit count: 1
 hit();       // Hit count: 2
 hit();       // Hit count: 3
@@ -116,7 +116,7 @@ hit();       // Hit count: 3
 
 The `useState(..)` function takes a single value (or a function which returns a value). This value is used only the first time, as the initial value for that unit of state.
 
-The return value of `useState(..)` is an tuple (2-element array) containing the current value of that unit of state, as well as a function to use to set/update that unit of state. You can name this unit of state whatever is appropriate, and also name the set/update function whatever is appropriate.
+The return value of `useState(..)` is a tuple (2-element array) containing the current value of that unit of state, as well as a function to use to set/update that unit of state. You can name this unit of state whatever is appropriate, and also name the set/update function whatever is appropriate.
 
 In the above snippet, we used array destructuring to set `count` and `updateCount` from the tuple returned from `useState(..)`.
 
@@ -136,7 +136,7 @@ function useHitCounter() {
     return count;
 }
 
-// will be TNG-wrapped, one handler for each button
+// will be TNG-wrapped twice, one handler for each button
 function onClick(evt) {
     var hitCount = useHitCounter();  // using a "custom hook"
 
@@ -150,7 +150,7 @@ fooBtn.addEventListener("click",TNG(onClick),false);
 barBtn.addEventListener("click",TNG(onClick),false);
 ```
 
-[Demo](https://codepen.io/getify/pen/VVbZOd?editors=1010)
+**[Run Demo](https://codepen.io/getify/pen/VVbZOd?editors=1010)**
 
 **Note:** Unlike React, TNG does not ***require or even ask you to*** name your "custom hooks" in the format `useWHATEVER(..)` with a `use` prefix. You *can do so* if you prefer.
 
