@@ -17,8 +17,8 @@
 		"publish": "npm run coverage:report"
 	},
 	"devDependencies": {
-		"coveralls": "~3.0.0",
-		"qunit": "~2.6.0"
+		"coveralls": "~3.0.2",
+		"qunit": "~2.6.2"
 	},
 	"repository": "getify/tng-hooks",
 	"keywords": [
