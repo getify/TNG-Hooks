@@ -43,7 +43,8 @@ QUnit.test( "useState(..)", function test(assert){
 
 	function bar() {
 		var [z,setZ] = useState(0);
-		setZ(z += 3);
+		z += 3;
+		setZ(z => z + 3);
 		return z;
 	}
 

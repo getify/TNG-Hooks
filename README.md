@@ -114,11 +114,46 @@ hit();       // Hit count: 2
 hit();       // Hit count: 3
 ```
 
-The `useState(..)` function takes a single value (or a function which returns a value). This value is used only the first time, as the initial value for that unit of state.
+The `useState(..)` function takes a single value, or a function which returns a value. This value is used only the first time, as the initial value for that unit of state.
 
 The return value of `useState(..)` is a tuple (2-element array) containing the current value of that unit of state, as well as a function to use to set/update that unit of state. You can name this unit of state whatever is appropriate, and also name the set/update function whatever is appropriate.
 
 In the above snippet, we used array destructuring to set `count` and `updateCount` from the tuple returned from `useState(..)`.
+
+The setter/updater (`updateCount(..)` in the above snippet) normally receives a single value. Alternatively, you can pass a function, which will receive the current value of that state unit as its only argument.
+
+For example:
+
+```js
+function hit() {
+    var [count,updateCount] = useState(0);
+
+    updateCount(onUpdateCount);
+    count++;
+
+    console.log(`Hit count: ${count}`);
+}
+
+function onUpdateCount(oldCount) {
+    return oldCount + 1;
+}
+
+hit = TNG(hit);
+
+hit();       // Hit count: 1
+hit();       // Hit count: 2
+hit();       // Hit count: 3
+```
+
+This approach is helpful for determining the new state unit value using its current value, especially if, as shown above, the setter/updater function is not inside the closure and cannot access the current state unit value directly.
+
+In this example, the line `updateCount(onUpdateCount)` could also have been written as:
+
+```js
+updateCount( onUpdateCount(count) );
+```
+
+The `onUpdateCount(..)` is passed the current `count` value and returns an updated value; that new value is passed directly to `updateCount(..)` rather than the function.
 
 ### TNG "Custom Hooks"
 

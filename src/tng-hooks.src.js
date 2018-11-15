@@ -45,7 +45,12 @@
 			if (!(bucket.nextIdx in bucket.slots)) {
 				let slot = [
 					typeof defVal == "function" ? defVal() : defVal,
-					function updateSlot(v){ slot[0] = v; }
+					function updateSlot(vOrFn){
+						slot[0] =
+							typeof vOrFn == "function" ?
+							vOrFn(slot[0]) :
+							vOrFn;
+					}
 				];
 				bucket.slots[bucket.nextIdx] = slot;
 			}
