@@ -14,7 +14,7 @@ This utility uses ES6 (aka ES2015) features. If you need to support environments
 
 ## At A Glance
 
-**TNG-Hooks** provides a `TNG(..)` utility that wraps regular, stand-alone (non-React) functions, providing them the ability to call certain hooks inside them. For instance, [`useState(..)`](#tng-usestate-hook) stores persistent (across invocations) state for each function -- essentially the same as [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html) for function components.
+**TNG-Hooks** provides a `TNG(..)` utility that wraps regular, stand-alone (non-React) functions, providing them the ability to call certain hooks inside them. For instance, [`useState(..)`](#usestate-hook) stores persistent (across invocations) state for each function -- essentially the same as [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html) for function components.
 
 ```js
 [renderUsername,onClickUsername] = TNG(renderUsername,onClickUsername);
@@ -56,7 +56,7 @@ In the above snippet, `activated` is persistent (across invocations) state for t
 
 **Note:** Since **TNG-Hooks** does not currently implement [React's `useEffect(..)` hook](https://reactjs.org/docs/hooks-effect.html), this example is emulating the one-time click handler attachment "side effect" via a persistent `activated` state, which only runs once.
 
-If a hook like `useState(..)` is used inside a non-TNG-wrapped function, that function is emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so it must be called from another TNG-wrapped function; otherwise, an error will be thrown. See [TNG Custom Hooks](#tng-custom-hooks) below for more information.
+If a hook like `useState(..)` is used inside a non-TNG-wrapped function, that function is emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so it must be called from another TNG-wrapped function; otherwise, an error will be thrown. See [TNG Custom Hooks](#custom-hooks) below for more information.
 
 ## Overview
 
@@ -92,9 +92,9 @@ B();
 C();
 ```
 
-### TNG `useState(..)` Hook
+### `useState(..)` Hook
 
-The `useState(..)` hook utility allows a function to persist some state across multiple invocations, without relying on global variables or having to manually create a closure to store that state. This only works for functions that have been adapted via the `TNG(..)` wrapper utility to have a hooks context.
+The `useState(..)` hook utility, like [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html), allows a function to persist some state across multiple invocations, without relying on global variables or having to manually create a closure to store that state. This only works for functions that have been adapted via the `TNG(..)` wrapper utility to have a hooks context.
 
 For example:
 
@@ -154,11 +154,11 @@ updateCount( onUpdateCount(count) );
 
 The `onUpdateCount(..)` is passed the current `count` value and returns an updated value; that new value is passed directly to `updateCount(..)` rather than the function.
 
-### TNG `useReducer(..)` Hook
+### `useReducer(..)` Hook
 
-Similar to `useState(..)`, the `useReducer(..)` hook provides for persistent state storage across invocations. In that respect, it's basically a special form of `useState(..)` for certain common cases.
+Like [React's `useReducer(..)` hook](https://reactjs.org/docs/hooks-reference.html#usereducer), the `useReducer(..)` hook is like a special case of [TNG's `useState(..)` hook](#usestate-hook) in that it also provides for persistent state storage across invocations; it's helpful for certain common cases when the state updates are more involved.
 
-`useReducer(..)` expects a reducer function and an initial value for that state unit.
+`useReducer(..)` expects a reducer function and an initial value for its state unit.
 
 For example:
 
@@ -181,7 +181,7 @@ hit();       // Hit count: 2
 hit();       // Hit count: 3
 ```
 
-Optionally, you can pass a third argument to `useReducer(..)` (argument `5` below), a value to be used to invoke the reducer immediately on just the initial pass.
+Optionally, you can pass a third argument to `useReducer(..)` (argument `5` below), a value to be used to invoke the reducer immediately only on the initial pass.
 
 For example:
 
@@ -204,7 +204,7 @@ hit();       // Hit count: 7
 hit();       // Hit count: 8
 ```
 
-### TNG "Custom Hooks"
+### "Custom Hooks"
 
 If a non-TNG-wrapped function uses `useState(..)`, it behaves like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A custom hook must be called from a TNG-wrapped function so it has a hook context.
 

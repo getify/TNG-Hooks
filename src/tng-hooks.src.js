@@ -45,26 +45,14 @@
 		}
 	}
 
-	function initializeSlot(bucket,slot,initialVal,updateSlotFn) {
-		slot[0] = typeof initialVal == "function" ? initialVal() : initialVal;
-		slot[1] = updateSlotFn;
-		bucket.slots[bucket.nextIdx] = slot;
-	}
-
 	function useState(initialVal) {
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			// need to create this slot for this bucket?
-			if (!(bucket.nextIdx in bucket.slots)) {
-				let slot = [];
-				initializeSlot(bucket,slot,initialVal,function updateSlot(vOrFn){
-					slot[0] =
-						typeof vOrFn == "function" ?
-						vOrFn(slot[0]) :
-						vOrFn;
-				});
-			}
-			return [...bucket.slots[bucket.nextIdx++]];
+			return useReducer(function reducer(prevVal,vOrFn){
+				return typeof vOrFn == "function" ?
+					vOrFn(prevVal) :
+					vOrFn;
+			},initialVal);
 		}
 		else {
 			throw new Error("Only use useState() inside of (or functions called from) TNG-wrapped functions.");
@@ -76,10 +64,14 @@
 		if (bucket) {
 			// need to create this slot for this bucket?
 			if (!(bucket.nextIdx in bucket.slots)) {
-				let slot = [];
-				initializeSlot(bucket,slot,initialVal,function updateSlot(v){
-					slot[0] = reducerFn(slot[0],v);
-				});
+				let slot = [
+					typeof initialVal == "function" ? initialVal() : initialVal,
+					function updateSlot(v){
+						slot[0] = reducerFn(slot[0],v);
+					},
+				];
+				bucket.slots[bucket.nextIdx] = slot;
+
 				// run the reducer initially?
 				if (initialReduction.length > 0) {
 					bucket.slots[bucket.nextIdx][1](initialReduction[0]);
