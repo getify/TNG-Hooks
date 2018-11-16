@@ -77,7 +77,48 @@ QUnit.test( "useState(..)", function test(assert){
 	assert.strictEqual( tActual, tExpected, "call without TNG wrapping context" );
 } );
 
-QUnit.test( "useState(..) in custom hook", function test(assert){
+QUnit.test( "useReducer(..)", function test(assert){
+	function foo() {
+		var [x,increaseX] = useReducer( function computeNewX(prevX,val){ return prevX + val; }, -2 );
+		var [y,setY] = useState(-1);
+		var [z,increaseZ] = bar();
+
+		increaseX(3);
+		setY(y += 3);
+		increaseZ(3);
+
+		return `foo ${x} ${y} ${z}`;
+	}
+
+	function bar() {
+		return useReducer( function computeNewZ(prevZ,val){ return prevZ + val; }, -2, 2 );
+	}
+
+	var rExpected = "foo -2 2 0";
+	var pExpected = "foo 1 5 3";
+	var qExpected = "foo 4 8 6";
+	var tExpected = "error";
+
+	foo = TNG(foo);
+
+	var rActual = foo();
+	var pActual = foo();
+	var qActual = foo();
+	try {
+		var tActual = bar();
+	}
+	catch (err) {
+		var tActual = "error";
+	}
+
+	assert.expect( 4 );
+	assert.strictEqual( rActual, rExpected, "initial call: foo" );
+	assert.strictEqual( pActual, pExpected, "second call: foo" );
+	assert.strictEqual( qActual, qExpected, "third call: foo" );
+	assert.strictEqual( tActual, tExpected, "call without TNG wrapping context" );
+} );
+
+QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
 		var [x,setX] = useState(-1);
 		var y = baz(0);

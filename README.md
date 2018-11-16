@@ -6,7 +6,7 @@
 [![devDependencies](https://david-dm.org/getify/tng-hooks/dev-status.svg)](https://david-dm.org/getify/tng-hooks?type=dev)
 [![Coverage Status](https://coveralls.io/repos/github/getify/tng-hooks/badge.svg?branch=master)](https://coveralls.io/github/getify/tng-hooks?branch=master)
 
-**TNG-Hooks** (/ˈting ho͝oks/) is inspired by [React Hooks](..). It's a simple implementation of `useState(..)` that works for non-React standalone functions. It even supports [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html) pattern.
+**TNG-Hooks** (/ˈting ho͝oks/) is inspired by [React Hooks](..). It's a simple implementation of hooks like `useState(..)` and `useReducer(..)` that works for non-React standalone functions. It even supports [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html) pattern.
 
 ## Environment Support
 
@@ -14,7 +14,7 @@ This utility uses ES6 (aka ES2015) features. If you need to support environments
 
 ## At A Glance
 
-**TNG-Hooks** provides a `TNG(..)` utility that wraps regular, stand-alone (non-React) functions, providing them the ability to call [`useState(..)`](#tng-usestate-hook) inside them to store persistent (across invocations) state for each function -- essentially the same as [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html) for function components.
+**TNG-Hooks** provides a `TNG(..)` utility that wraps regular, stand-alone (non-React) functions, providing them the ability to call certain hooks inside them. For instance, [`useState(..)`](#tng-usestate-hook) stores persistent (across invocations) state for each function -- essentially the same as [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html) for function components.
 
 ```js
 [renderUsername,onClickUsername] = TNG(renderUsername,onClickUsername);
@@ -54,13 +54,13 @@ renderUsername(user.shortName);
 
 In the above snippet, `activated` is persistent (across invocations) state for the `renderUsername(..)` function, and `expanded` is separate persistent state for the `onClickUsername(..)` function.
 
-**Note:** Since TNG does not currently implement [React's `useEffect(..)` hook](https://reactjs.org/docs/hooks-effect.html), this example is emulating the one-time click handler attachment via a persistent `activated` state.
+**Note:** Since **TNG-Hooks** does not currently implement [React's `useEffect(..)` hook](https://reactjs.org/docs/hooks-effect.html), this example is emulating the one-time click handler attachment "side effect" via a persistent `activated` state, which only runs once.
 
-If `useState(..)` is used inside a non-TNG-wrapped function, it's emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so that function must be called from another TNG-wrapped function; otherwise, an error will be thrown. See [TNG Custom Hooks](#tng-custom-hooks) below for more information.
+If a hook like `useState(..)` is used inside a non-TNG-wrapped function, that function is emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so it must be called from another TNG-wrapped function; otherwise, an error will be thrown. See [TNG Custom Hooks](#tng-custom-hooks) below for more information.
 
 ## Overview
 
-**TNG-Hooks** is inspired by [React's Hooks](https://reactjs.org/docs/hooks-overview.html) mechanism. It implements similar capabilities but for stand-alone (non-React) functions.
+**TNG-Hooks** is inspired by [React's Hooks](https://reactjs.org/docs/hooks-overview.html) mechanism. It implements some similar capabilities but for stand-alone (non-React) functions.
 
 `TNG(..)` is a utility to wrap one or more functions so they are able to maintain a persistent hook context across multiple invocations.
 
@@ -129,9 +129,8 @@ function hit() {
     var [count,updateCount] = useState(0);
 
     updateCount(onUpdateCount);
-    count++;
 
-    console.log(`Hit count: ${count}`);
+    console.log(`Hit count: ${++count}`);
 }
 
 function onUpdateCount(oldCount) {
@@ -154,6 +153,56 @@ updateCount( onUpdateCount(count) );
 ```
 
 The `onUpdateCount(..)` is passed the current `count` value and returns an updated value; that new value is passed directly to `updateCount(..)` rather than the function.
+
+### TNG `useReducer(..)` Hook
+
+Similar to `useState(..)`, the `useReducer(..)` hook provides for persistent state storage across invocations. In that respect, it's basically a special form of `useState(..)` for certain common cases.
+
+`useReducer(..)` expects a reducer function and an initial value for that state unit.
+
+For example:
+
+```js
+function hit(amount = 1) {
+    var [count,incCounter] = useReducer(updateCounter,0);
+    incCounter(amount);
+
+    console.log(`Hit count: ${(count += amount)}`);
+}
+
+function updateCounter(prevCount,val) {
+    return prevCount + val;
+}
+
+hit = TNG(hit);
+
+hit();       // Hit count: 1
+hit();       // Hit count: 2
+hit();       // Hit count: 3
+```
+
+Optionally, you can pass a third argument to `useReducer(..)` (argument `5` below), a value to be used to invoke the reducer immediately on just the initial pass.
+
+For example:
+
+```js
+function hit(amount = 1) {
+    var [count,incCounter] = useReducer(updateCounter,0,5);
+    incCounter(amount);
+
+    console.log(`Hit count: ${(count += amount)}`);
+}
+
+function updateCounter(prevCount,val) {
+    return prevCount + val;
+}
+
+hit = TNG(hit);
+
+hit();       // Hit count: 6
+hit();       // Hit count: 7
+hit();       // Hit count: 8
+```
 
 ### TNG "Custom Hooks"
 
