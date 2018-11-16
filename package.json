@@ -1,6 +1,6 @@
 {
 	"name": "tng-hooks",
-	"version": "3.0.2",
+	"version": "3.0.3",
 	"description": "Provides React-inspired 'hooks' like useState(..) for stand-alone functions",
 	"main": "./dist/tng-hooks.js",
 	"scripts": {

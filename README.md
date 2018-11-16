@@ -56,7 +56,9 @@ In the above snippet, `activated` is persistent (across invocations) state for t
 
 **Note:** Since **TNG-Hooks** does not currently implement [React's `useEffect(..)` hook](https://reactjs.org/docs/hooks-effect.html), this example is emulating the one-time click handler attachment "side effect" via a persistent `activated` state, which only runs once.
 
-If a hook like `useState(..)` is used inside a non-TNG-wrapped function, that function is emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so it must be called from another TNG-wrapped function; otherwise, an error will be thrown. See [TNG Custom Hooks](#custom-hooks) below for more information.
+If a hook like `useState(..)` is used inside a non-TNG-wrapped function, that function is emulating a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html), and so it ***must be called*** from another TNG-wrapped function; otherwise, an error will be thrown. See [TNG Custom Hooks](#custom-hooks) below for more information.
+
+There are some **[important rules](#hook-call-rules)** to keep in mind with using **TNG-Hooks** calls in your functions.
 
 ## Overview
 
@@ -206,7 +208,7 @@ hit();       // Hit count: 8
 
 ### "Custom Hooks"
 
-If a non-TNG-wrapped function uses `useState(..)`, it behaves like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A custom hook must be called from a TNG-wrapped function so it has a hook context.
+If a non-TNG-wrapped function uses `useState(..)`, it behaves like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A custom hook ***must be called*** from a TNG-wrapped function so it has a hook context.
 
 For example:
 
@@ -242,6 +244,33 @@ The `useHitCounter(..)` custom hook -- which again is just a normal non-wrapped 
 
 In other words, the line `var [count,updateCount] = useState(0);` acts as if it had been called inside of one of the click handlers, even though it's actually in a separate function. That makes `useHitCounter(..)` a custom hook, that can be called from any number of TNG-wrapped functions.
 
+### Hook Call Rules
+
+Similar to [the rules of React's hooks](https://reactjs.org/docs/hooks-rules.html#only-call-hooks-at-the-top-level), there are some rules/guides that you need to keep in mind when using **TNG-Hooks**.
+
+1. It is ***absolutely required*** that hooks always be called in the same order. That is, that you must never have an invocation of a function that skips over an earlier  hook call but then tries to invoke one of the subsequent hook calls. ***THIS WILL BREAK!***
+
+    However, it is still technically possible to have hook calls in conditional situations (or even loops!), as long as you are very careful to never skip calls in an unsafe ordering manner.
+
+    If you have three hook calls (A, B, and C) in a function, these are the valid call ordering scenarios:
+
+    - A, B, C
+    - A, B
+    - A
+
+    These are invalid scenarios and ***will break***:
+
+    - B, C
+    - A, C
+    - B
+    - C
+
+2. To avoid the intricasies of those ordering scenarios, it is ***strongly recommended*** that you only call TNG hooks ([`useState(..)`](#usestate-hook), [`useReducer(..)`](#usereducer-hook), etc) from the top-level of the function, not inside of any loops or conditionals.
+
+    This is considered a best practice in terms of readability of your functions. But it also happens to be the easiest way to ensure that the hooks are always called in the same order, ***which is critical***.
+
+3. Custom hooks do not have to be named like `useXYZ(..)` with a `use` prefix. However, it's a *good idea* to keep your hooks named that way, to keep in line with conventions from React hooks.
+
 ## npm Package
 
 ```
@@ -251,7 +280,7 @@ npm install tng-hooks
 And to require it in a node script:
 
 ```js
-var { TNG, useState, } = require("tng-hooks");
+var { TNG, useState, useReducer, /* .. */ } = require("tng-hooks");
 ```
 
 ## Builds
