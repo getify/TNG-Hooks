@@ -6,7 +6,7 @@
 [![devDependencies](https://david-dm.org/getify/tng-hooks/dev-status.svg)](https://david-dm.org/getify/tng-hooks?type=dev)
 [![Coverage Status](https://coveralls.io/repos/github/getify/tng-hooks/badge.svg?branch=master)](https://coveralls.io/github/getify/tng-hooks?branch=master)
 
-**TNG-Hooks** (/ˈting ho͝oks/) is inspired by [React Hooks](..). It's a simple implementation of hooks (i.e., `useState(..)`, `useReducer(..)`, `useEffect(..)`) that works for non-React standalone functions. It even supports the [Custom Hooks](#custom-hooks) pattern from [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html).
+**TNG-Hooks** (/ˈting ho͝oks/) is inspired by [React Hooks](https://reactjs.org/docs/hooks-overview.html). It's a simple implementation of hooks (i.e., `useState(..)`, `useReducer(..)`, `useEffect(..)`) that works for non-React standalone functions. It even supports the [Custom Hooks](#custom-hooks) pattern from [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html).
 
 ## Environment Support
 
