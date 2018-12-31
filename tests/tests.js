@@ -1,10 +1,12 @@
 "use strict";
 
 QUnit.test( "API", function test(assert){
-	assert.expect( 2 );
+	assert.expect( 4 );
 
 	assert.ok( _isFunction( TNG ), "TNG()" );
 	assert.ok( _isFunction( useState ), "useState()" );
+	assert.ok( _isFunction( useReducer ), "useReducer()" );
+	assert.ok( _isFunction( useEffect ), "useEffect()" );
 } );
 
 QUnit.test( "TNG(..)", function test(assert){
@@ -116,6 +118,122 @@ QUnit.test( "useReducer(..)", function test(assert){
 	assert.strictEqual( pActual, pExpected, "second call: foo" );
 	assert.strictEqual( qActual, qExpected, "third call: foo" );
 	assert.strictEqual( tActual, tExpected, "call without TNG wrapping context" );
+} );
+
+QUnit.test( "useEffect(..)", function test(assert){
+	function foo(x,y,...rest) {
+		var [count,updateCount] = useState(0);
+		updateCount(++count);
+
+		baz();	// "three"
+		useEffect(function four(){
+			assert.step("four");
+			if (rest.length === 1) {
+				return function eight(){
+					assert.step("eight");
+				};
+			}
+		});
+		useEffect(function five(){
+			assert.step("five");
+		},[x,y]);
+		useEffect(function six(){
+			assert.step("six");
+		},...rest);
+		useEffect(function seven(){
+			assert.step("seven");
+		},rest);
+
+		assert.step(`one: ${count}`);
+		bar();	// "two"
+	}
+
+	// Articulated Function
+	function bar() {
+		useEffect(function two(){
+			assert.step("two");
+		});
+	}
+
+	// Custom Hook (not Articulated Function)
+	function baz() {
+		useEffect(function three(){
+			assert.step("three");
+		},[]);
+	}
+
+	// also not Articulated Function
+	function bam() {
+		assert.step("yep");
+
+		useEffect(function nope(){
+			assert.step("nope 2");
+		});
+
+		return "nope 1";
+	}
+
+	var rExpected = [
+		"one: 1",
+		"two",
+		"three",
+		"four",
+		"five",
+		"six",
+		"seven",
+		"----",
+		"one: 2",
+		"two",
+		"eight",
+		"four",
+		"six",
+		"seven",
+		"-----",
+		"one: 3",
+		"two",
+		"four",
+		"five",
+		"------",
+		"-------",
+		"one: 1",
+		"two",
+		"three",
+		"four",
+		"five",
+		"six",
+		"seven",
+		"--------",
+		"eight",
+		"yep",
+	];
+	var pExpected = "error";
+
+	[foo,bar] = TNG(foo,bar);
+
+	// var rActual;
+	foo(3,4,7);
+	assert.step("----");
+	foo(3,4,7,8);
+	assert.step("-----");
+	foo(4,5,7,8);
+	assert.step("------");
+	foo.reset();
+	assert.step("-------");
+	foo(3,4,7);
+	assert.step("--------");
+	foo.reset();
+	foo.reset();
+
+	try {
+		var pActual = bam();
+	}
+	catch (err) {
+		var pActual = "error";
+	}
+
+	assert.expect( 33 ); // note: 2 assertions + 31 `step(..)` calls
+	assert.verifySteps( rExpected, "check conditional effects" );
+	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
 
 QUnit.test( "use hooks from custom hook", function test(assert){

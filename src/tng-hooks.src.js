@@ -6,39 +6,85 @@
 	"use strict";
 
 	var buckets = new WeakMap();
-	var currentBucket = [];
+	var tngStack = [];
 
-	return { TNG, useState, useReducer, };
+	return { TNG, useState, useReducer, useEffect, };
 
 
 	// ******************
 
 	function TNG(...fns) {
 		fns = fns.map(function mapper(fn){
-			return function tngf(...args) {
-				if (buckets.has(tngf)) {
-					let bucket = buckets.get(tngf);
-					bucket.nextIdx = 0;
-				}
-				currentBucket.push(tngf);
+			tngf.reset = reset;
+			return tngf;
+
+
+			// ******************
+
+			function tngf(...args) {
+				tngStack.push(tngf);
+				var bucket = getCurrentBucket();
+				bucket.nextStateSlotIdx = 0;
+				bucket.nextEffectIdx = 0;
+
 				try {
 					return fn.apply(this,args);
 				}
 				finally {
-					currentBucket.pop();
+					// run (cleanups and) effects, if any
+					try {
+						runEffects(bucket);
+					}
+					finally {
+						tngStack.pop();
+					}
 				}
-			};
+			}
+
+			function runEffects(bucket) {
+				for (let [idx,[effect,guards]] of bucket.effects.entries()) {
+					try {
+						if (typeof effect == "function") {
+							effect();
+						}
+					}
+					finally {
+						bucket.effects[idx][0] = undefined;
+					}
+				}
+			}
+
+			function reset() {
+				tngStack.push(tngf);
+				var bucket = getCurrentBucket();
+				try {
+					// run all pending cleanups
+					for (let cleanup of bucket.cleanups) {
+						if (typeof cleanup == "function") {
+							cleanup();
+						}
+					}
+				}
+				finally {
+					tngStack.pop();
+					bucket.stateSlots.length = 0;
+					bucket.effects.length = 0;
+					bucket.cleanups.length = 0;
+					bucket.nextStateSlotIdx = 0;
+					bucket.nextEffectIdx = 0;
+				}
+			}
 		});
-		if (fns.length < 2) return fns[0];
-		return fns;
+
+		return (fns.length < 2) ? fns[0] : fns;
 	}
 
 	function getCurrentBucket() {
-		if (currentBucket.length > 0) {
-			let tngf = currentBucket[currentBucket.length - 1];
+		if (tngStack.length > 0) {
+			let tngf = tngStack[tngStack.length - 1];
 			let bucket;
 			if (!buckets.has(tngf)) {
-				bucket = { nextIdx: 0, slots: [], };
+				bucket = { nextStateSlotIdx: 0, nextEffectIdx: 0, stateSlots: [], effects: [], cleanups: [], };
 				buckets.set(tngf,bucket);
 			}
 			return buckets.get(tngf);
@@ -55,32 +101,116 @@
 			},initialVal);
 		}
 		else {
-			throw new Error("Only use useState() inside of (or functions called from) TNG-wrapped functions.");
+			throw new Error("useState() only valid inside an Articulated Function or a Custom Hook.");
 		}
 	}
 
 	function useReducer(reducerFn,initialVal,...initialReduction) {
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			// need to create this slot for this bucket?
-			if (!(bucket.nextIdx in bucket.slots)) {
+			// need to create this state-slot for this bucket?
+			if (!(bucket.nextStateSlotIdx in bucket.stateSlots)) {
 				let slot = [
 					typeof initialVal == "function" ? initialVal() : initialVal,
 					function updateSlot(v){
 						slot[0] = reducerFn(slot[0],v);
 					},
 				];
-				bucket.slots[bucket.nextIdx] = slot;
+				bucket.stateSlots[bucket.nextStateSlotIdx] = slot;
 
 				// run the reducer initially?
 				if (initialReduction.length > 0) {
-					bucket.slots[bucket.nextIdx][1](initialReduction[0]);
+					bucket.stateSlots[bucket.nextStateSlotIdx][1](initialReduction[0]);
 				}
 			}
-			return [...bucket.slots[bucket.nextIdx++]];
+			return [...bucket.stateSlots[bucket.nextStateSlotIdx++]];
 		}
 		else {
-			throw new Error("Only use useReducer() inside of (or functions called from) TNG-wrapped functions.");
+			throw new Error("useReducer() only valid inside an Articulated Function or a Custom Hook.");
+		}
+	}
+
+	// NOTE: both `guards1` and `guards2` are either
+	//    `undefined` or an array
+	function guardsChanged(guards1,guards2) {
+		// either guards list not set?
+		if (guards1 === undefined || guards2 === undefined) {
+			// force assumption of change in guards
+			return true;
+		}
+
+		// guards lists of different length?
+		if (guards1.length !== guards2.length) {
+			// guards changed
+			return true;
+		}
+
+		// check guards lists for differences
+		//    (only shallow value comparisons)
+		for (let [idx,guard] of guards1.entries()) {
+			if (!Object.is(guard,guards2[idx])) {
+				// guards changed
+				return true;
+			}
+		}
+
+		// assume no change in guards
+		return false;
+	}
+
+	function useEffect(fn,...guards) {
+		// passed in any guards?
+		if (guards.length > 0) {
+			// only passed a single guards list?
+			if (guards.length == 1 && Array.isArray(guards[0])) {
+				guards = guards[0];
+			}
+		}
+		// no guards passed
+		// NOTE: different handling than an empty guards list like []
+		else {
+			guards = undefined;
+		}
+
+		var bucket = getCurrentBucket();
+		if (bucket) {
+			// need to create this effect-slot for this bucket?
+			if (!(bucket.nextEffectIdx in bucket.effects)) {
+				bucket.effects[bucket.nextEffectIdx] = [];
+			}
+
+			let effectIdx = bucket.nextEffectIdx;
+			let effect = bucket.effects[effectIdx];
+
+			// check guards?
+			if (guardsChanged(effect[1],guards)) {
+				// define effect handler
+				effect[0] = function effect(){
+					// run a previous cleanup first?
+					if (typeof bucket.cleanups[effectIdx] == "function") {
+						try {
+							bucket.cleanups[effectIdx]();
+						}
+						finally {
+							bucket.cleanups[effectIdx] = undefined;
+						}
+					}
+
+					// invoke the effect itself
+					var ret = fn();
+
+					// cleanup function returned, to be saved?
+					if (typeof ret == "function") {
+						bucket.cleanups[effectIdx] = ret;
+					}
+				};
+				effect[1] = guards;
+			}
+
+			bucket.nextEffectIdx++;
+		}
+		else {
+			throw new Error("useEffect() only valid inside an Articulated Function or a Custom Hook.");
 		}
 	}
 });
