@@ -8,8 +8,7 @@
 	var buckets = new WeakMap();
 	var tngStack = [];
 
-	return { TNG, useState, useReducer, useEffect, };
-
+	return { TNG, useState, useReducer, useEffect, useMemo };
 
 	// ******************
 
@@ -18,7 +17,6 @@
 			tngf.reset = reset;
 			return tngf;
 
-
 			// ******************
 
 			function tngf(...args) {
@@ -26,29 +24,27 @@
 				var bucket = getCurrentBucket();
 				bucket.nextStateSlotIdx = 0;
 				bucket.nextEffectIdx = 0;
+				bucket.nextMemoizationIdx = 0;
 
 				try {
-					return fn.apply(this,args);
-				}
-				finally {
+					return fn.apply(this, args);
+				} finally {
 					// run (cleanups and) effects, if any
 					try {
 						runEffects(bucket);
-					}
-					finally {
+					} finally {
 						tngStack.pop();
 					}
 				}
 			}
 
 			function runEffects(bucket) {
-				for (let [idx,[effect,guards]] of bucket.effects.entries()) {
+				for (let [idx, [effect, guards]] of bucket.effects.entries()) {
 					try {
 						if (typeof effect == "function") {
 							effect();
 						}
-					}
-					finally {
+					} finally {
 						bucket.effects[idx][0] = undefined;
 					}
 				}
@@ -64,19 +60,20 @@
 							cleanup();
 						}
 					}
-				}
-				finally {
+				} finally {
 					tngStack.pop();
 					bucket.stateSlots.length = 0;
 					bucket.effects.length = 0;
 					bucket.cleanups.length = 0;
+					bucket.memoizations.length = 0;
 					bucket.nextStateSlotIdx = 0;
 					bucket.nextEffectIdx = 0;
+					bucket.nextMemoizationIdx = 0;
 				}
 			}
 		});
 
-		return (fns.length < 2) ? fns[0] : fns;
+		return fns.length < 2 ? fns[0] : fns;
 	}
 
 	function getCurrentBucket() {
@@ -84,8 +81,16 @@
 			let tngf = tngStack[tngStack.length - 1];
 			let bucket;
 			if (!buckets.has(tngf)) {
-				bucket = { nextStateSlotIdx: 0, nextEffectIdx: 0, stateSlots: [], effects: [], cleanups: [], };
-				buckets.set(tngf,bucket);
+				bucket = {
+					nextStateSlotIdx: 0,
+					nextEffectIdx: 0,
+					nextMemoizationIdx: 0,
+					stateSlots: [],
+					effects: [],
+					cleanups: [],
+					memoizations: []
+				};
+				buckets.set(tngf, bucket);
 			}
 			return buckets.get(tngf);
 		}
@@ -94,71 +99,45 @@
 	function useState(initialVal) {
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			return useReducer(function reducer(prevVal,vOrFn){
-				return typeof vOrFn == "function" ?
-					vOrFn(prevVal) :
-					vOrFn;
-			},initialVal);
-		}
-		else {
-			throw new Error("useState() only valid inside an Articulated Function or a Custom Hook.");
+			return useReducer(function reducer(prevVal, vOrFn) {
+				return typeof vOrFn == "function" ? vOrFn(prevVal) : vOrFn;
+			}, initialVal);
+		} else {
+			throw new Error(
+				"useState() only valid inside an Articulated Function or a Custom Hook."
+			);
 		}
 	}
 
-	function useReducer(reducerFn,initialVal,...initialReduction) {
+	function useReducer(reducerFn, initialVal, ...initialReduction) {
 		var bucket = getCurrentBucket();
 		if (bucket) {
 			// need to create this state-slot for this bucket?
 			if (!(bucket.nextStateSlotIdx in bucket.stateSlots)) {
 				let slot = [
 					typeof initialVal == "function" ? initialVal() : initialVal,
-					function updateSlot(v){
-						slot[0] = reducerFn(slot[0],v);
-					},
+					function updateSlot(v) {
+						slot[0] = reducerFn(slot[0], v);
+					}
 				];
 				bucket.stateSlots[bucket.nextStateSlotIdx] = slot;
 
 				// run the reducer initially?
 				if (initialReduction.length > 0) {
-					bucket.stateSlots[bucket.nextStateSlotIdx][1](initialReduction[0]);
+					bucket.stateSlots[bucket.nextStateSlotIdx][1](
+						initialReduction[0]
+					);
 				}
 			}
 			return [...bucket.stateSlots[bucket.nextStateSlotIdx++]];
-		}
-		else {
-			throw new Error("useReducer() only valid inside an Articulated Function or a Custom Hook.");
+		} else {
+			throw new Error(
+				"useReducer() only valid inside an Articulated Function or a Custom Hook."
+			);
 		}
 	}
 
-	// NOTE: both `guards1` and `guards2` are either
-	//    `undefined` or an array
-	function guardsChanged(guards1,guards2) {
-		// either guards list not set?
-		if (guards1 === undefined || guards2 === undefined) {
-			// force assumption of change in guards
-			return true;
-		}
-
-		// guards lists of different length?
-		if (guards1.length !== guards2.length) {
-			// guards changed
-			return true;
-		}
-
-		// check guards lists for differences
-		//    (only shallow value comparisons)
-		for (let [idx,guard] of guards1.entries()) {
-			if (!Object.is(guard,guards2[idx])) {
-				// guards changed
-				return true;
-			}
-		}
-
-		// assume no change in guards
-		return false;
-	}
-
-	function useEffect(fn,...guards) {
+	function useEffect(fn, ...guards) {
 		// passed in any guards?
 		if (guards.length > 0) {
 			// only passed a single guards list?
@@ -183,15 +162,14 @@
 			let effect = bucket.effects[effectIdx];
 
 			// check guards?
-			if (guardsChanged(effect[1],guards)) {
+			if (guardsChanged(effect[1], guards)) {
 				// define effect handler
-				effect[0] = function effect(){
+				effect[0] = function effect() {
 					// run a previous cleanup first?
 					if (typeof bucket.cleanups[effectIdx] == "function") {
 						try {
 							bucket.cleanups[effectIdx]();
-						}
-						finally {
+						} finally {
 							bucket.cleanups[effectIdx] = undefined;
 						}
 					}
@@ -208,9 +186,80 @@
 			}
 
 			bucket.nextEffectIdx++;
+		} else {
+			throw new Error(
+				"useEffect() only valid inside an Articulated Function or a Custom Hook."
+			);
 		}
+	}
+
+	function useMemo(fn, ...guards) {
+		// passed in any guards?
+		if (guards.length > 0) {
+			// only passed a single guards list?
+			if (guards.length == 1 && Array.isArray(guards[0])) {
+				guards = guards[0];
+			}
+		}
+		// no guards passed
+		// NOTE: different handling than an empty guards list like []
 		else {
-			throw new Error("useEffect() only valid inside an Articulated Function or a Custom Hook.");
+			guards = undefined;
 		}
+
+		var bucket = getCurrentBucket();
+		if (bucket) {
+			// need to create this memoization-slot for this bucket?
+			if (!(bucket.nextMemoizationIdx in bucket.memoizations)) {
+				bucket.memoizations[bucket.nextMemoizationIdx] = [];
+			}
+
+			let memoizationIdx = bucket.nextMemoizationIdx;
+			let memoization = bucket.memoizations[memoizationIdx];
+
+			// check guards?
+			if (guardsChanged(memoization[1], guards)) {
+				// invoke the memoization
+				memoization[0] = fn();
+				memoization[1] = guards;
+			}
+
+			bucket.nextMemoizationIdx++;
+
+			return memoization[0];
+		} else {
+			throw new Error(
+				"useMemo() only valid inside an Articulated Function or a Custom Hook."
+			);
+		}
+	}
+
+	function guardsChanged(guards1, guards2) {
+		// NOTE: both `guards1` and `guards2` are either
+		// `undefined` or an array
+
+		// either guards list not set?
+		if (guards1 === undefined || guards2 === undefined) {
+			// force assumption of change in guards
+			return true;
+		}
+
+		// guards lists of different length?
+		if (guards1.length !== guards2.length) {
+			// guards changed
+			return true;
+		}
+
+		// check guards lists for differences
+		//    (only shallow value comparisons)
+		for (let [idx, guard] of guards1.entries()) {
+			if (!Object.is(guard, guards2[idx])) {
+				// guards changed
+				return true;
+			}
+		}
+
+		// assume no change in guards
+		return false;
 	}
 });

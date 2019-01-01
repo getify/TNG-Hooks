@@ -8,6 +8,7 @@
 		"test:dist": "TEST_DIST=true npm test",
 		"test:package": "TEST_PACKAGE=true npm test",
 		"test:all": "npm test && npm run test:dist && npm run test:package",
+		"format": "prettier README.md {src,scripts,tests}/**/*.js --write",
 		"coverage": "istanbul cover scripts/node-tests.js",
 		"coverage:report": "npm run coverage && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
 		"build-core": "node scripts/build-core.js",
@@ -18,6 +19,7 @@
 	},
 	"devDependencies": {
 		"coveralls": "~3.0.2",
+		"prettier": "^1.15.3",
 		"qunit": "~2.8.0"
 	},
 	"repository": "getify/tng-hooks",

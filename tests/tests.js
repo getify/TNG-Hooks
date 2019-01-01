@@ -1,57 +1,66 @@
 "use strict";
 
-QUnit.test( "API", function test(assert){
-	assert.expect( 4 );
+QUnit.test("API", function test(assert) {
+	assert.expect(5);
 
-	assert.ok( _isFunction( TNG ), "TNG()" );
-	assert.ok( _isFunction( useState ), "useState()" );
-	assert.ok( _isFunction( useReducer ), "useReducer()" );
-	assert.ok( _isFunction( useEffect ), "useEffect()" );
-} );
+	assert.ok(_isFunction(TNG), "TNG()");
+	assert.ok(_isFunction(useState), "useState()");
+	assert.ok(_isFunction(useReducer), "useReducer()");
+	assert.ok(_isFunction(useEffect), "useEffect()");
+	assert.ok(_isFunction(useMemo), "useMemo()");
+});
 
-QUnit.test( "TNG(..)", function test(assert){
-	function foo(x,y) { return `foo ${x} ${y}`; }
-	function bar(x,y) { return `bar ${x} ${y}`; }
-	function baz(x,y) { return `baz ${x} ${y}`; }
+QUnit.test("TNG(..)", function test(assert) {
+	function foo(x, y) {
+		return `foo ${x} ${y}`;
+	}
+	function bar(x, y) {
+		return `bar ${x} ${y}`;
+	}
+	function baz(x, y) {
+		return `baz ${x} ${y}`;
+	}
 
 	var rExpected = "foo 1 2";
 	var pExpected = "bar 3 4";
 	var qExpected = "baz 5 6";
 
 	foo = TNG(foo);
-	[bar,baz] = TNG(bar,baz);
+	[bar, baz] = TNG(bar, baz);
 
-	var rActual = foo(1,2);
-	var pActual = bar(3,4);
-	var qActual = baz(5,6);
+	var rActual = foo(1, 2);
+	var pActual = bar(3, 4);
+	var qActual = baz(5, 6);
 
-	assert.expect( 3 );
-	assert.strictEqual( rActual, rExpected, "single function wrap: foo" );
-	assert.strictEqual( pActual, pExpected, "multiple function wrap: bar" );
-	assert.strictEqual( qActual, qExpected, "multiple function wrap: baz" );
-} );
+	assert.expect(3);
+	assert.strictEqual(rActual, rExpected, "single function wrap: foo");
+	assert.strictEqual(pActual, pExpected, "multiple function wrap: bar");
+	assert.strictEqual(qActual, qExpected, "multiple function wrap: baz");
+});
 
-QUnit.test( "useState(..)", function test(assert){
+QUnit.test("useState(..)", function test(assert) {
 	function foo() {
-		var [x,setX] = useState(-2);
-		var [y,setY] = useState(function negOne() { return -1; });
+		var [x, setX] = useState(-2);
+		var [y, setY] = useState(function negOne() {
+			return -1;
+		});
 
-		setX(x += 3);
-		setY(y += 3);
+		setX((x += 3));
+		setY((y += 3));
 		var z = bar();
 
 		return `foo ${x} ${y} ${z}`;
 	}
 
 	function bar() {
-		var [z,setZ] = useState(0);
+		var [z, setZ] = useState(0);
 		z += 3;
 		setZ(z => z + 3);
 		return z;
 	}
 
 	function baz() {
-		var [z,setZ] = useState(0);
+		var [z, setZ] = useState(0);
 		return "oops";
 	}
 
@@ -60,40 +69,47 @@ QUnit.test( "useState(..)", function test(assert){
 	var qExpected = "foo 7 8 9";
 	var tExpected = "error";
 
-	[foo,bar] = TNG(foo,bar);
+	[foo, bar] = TNG(foo, bar);
 
 	var rActual = foo();
 	var pActual = foo();
 	var qActual = foo();
 	try {
 		var tActual = baz();
-	}
-	catch (err) {
+	} catch (err) {
 		var tActual = "error";
 	}
 
-	assert.expect( 4 );
-	assert.strictEqual( rActual, rExpected, "initial call: foo" );
-	assert.strictEqual( pActual, pExpected, "second call: foo" );
-	assert.strictEqual( qActual, qExpected, "third call: foo" );
-	assert.strictEqual( tActual, tExpected, "call without TNG wrapping context" );
-} );
+	assert.expect(4);
+	assert.strictEqual(rActual, rExpected, "initial call: foo");
+	assert.strictEqual(pActual, pExpected, "second call: foo");
+	assert.strictEqual(qActual, qExpected, "third call: foo");
+	assert.strictEqual(tActual, tExpected, "call without TNG wrapping context");
+});
 
-QUnit.test( "useReducer(..)", function test(assert){
+QUnit.test("useReducer(..)", function test(assert) {
 	function foo() {
-		var [x,increaseX] = useReducer( function computeNewX(prevX,val){ return prevX + val; }, -2 );
-		var [y,setY] = useState(-1);
-		var [z,increaseZ] = bar();
+		var [x, increaseX] = useReducer(function computeNewX(prevX, val) {
+			return prevX + val;
+		}, -2);
+		var [y, setY] = useState(-1);
+		var [z, increaseZ] = bar();
 
 		increaseX(3);
-		setY(y += 3);
+		setY((y += 3));
 		increaseZ(3);
 
 		return `foo ${x} ${y} ${z}`;
 	}
 
 	function bar() {
-		return useReducer( function computeNewZ(prevZ,val){ return prevZ + val; }, -2, 2 );
+		return useReducer(
+			function computeNewZ(prevZ, val) {
+				return prevZ + val;
+			},
+			-2,
+			2
+		);
 	}
 
 	var rExpected = "foo -2 2 0";
@@ -108,65 +124,67 @@ QUnit.test( "useReducer(..)", function test(assert){
 	var qActual = foo();
 	try {
 		var tActual = bar();
-	}
-	catch (err) {
+	} catch (err) {
 		var tActual = "error";
 	}
 
-	assert.expect( 4 );
-	assert.strictEqual( rActual, rExpected, "initial call: foo" );
-	assert.strictEqual( pActual, pExpected, "second call: foo" );
-	assert.strictEqual( qActual, qExpected, "third call: foo" );
-	assert.strictEqual( tActual, tExpected, "call without TNG wrapping context" );
-} );
+	assert.expect(4);
+	assert.strictEqual(rActual, rExpected, "initial call: foo");
+	assert.strictEqual(pActual, pExpected, "second call: foo");
+	assert.strictEqual(qActual, qExpected, "third call: foo");
+	assert.strictEqual(tActual, tExpected, "call without TNG wrapping context");
+});
 
-QUnit.test( "useEffect(..)", function test(assert){
-	function foo(x,y,...rest) {
-		var [count,updateCount] = useState(0);
+QUnit.test("useEffect(..)", function test(assert) {
+	function foo(x, y, ...rest) {
+		var [count, updateCount] = useState(0);
 		updateCount(++count);
 
-		baz();	// "three"
-		useEffect(function four(){
+		baz(); // "three"
+		useEffect(function four() {
 			assert.step("four");
 			if (rest.length === 1) {
-				return function eight(){
+				return function eight() {
 					assert.step("eight");
 				};
 			}
 		});
-		useEffect(function five(){
-			assert.step("five");
-		},[x,y]);
-		useEffect(function six(){
+		useEffect(
+			function five() {
+				assert.step("five");
+			},
+			[x, y]
+		);
+		useEffect(function six() {
 			assert.step("six");
-		},...rest);
-		useEffect(function seven(){
+		}, ...rest);
+		useEffect(function seven() {
 			assert.step("seven");
-		},rest);
+		}, rest);
 
 		assert.step(`one: ${count}`);
-		bar();	// "two"
+		bar(); // "two"
 	}
 
 	// Articulated Function
 	function bar() {
-		useEffect(function two(){
+		useEffect(function two() {
 			assert.step("two");
 		});
 	}
 
 	// Custom Hook (not Articulated Function)
 	function baz() {
-		useEffect(function three(){
+		useEffect(function three() {
 			assert.step("three");
-		},[]);
+		}, []);
 	}
 
 	// also not Articulated Function
 	function bam() {
 		assert.step("yep");
 
-		useEffect(function nope(){
+		useEffect(function nope() {
 			assert.step("nope 2");
 		});
 
@@ -204,60 +222,96 @@ QUnit.test( "useEffect(..)", function test(assert){
 		"seven",
 		"--------",
 		"eight",
-		"yep",
+		"yep"
 	];
 	var pExpected = "error";
 
-	[foo,bar] = TNG(foo,bar);
+	[foo, bar] = TNG(foo, bar);
 
 	// var rActual;
-	foo(3,4,7);
+	foo(3, 4, 7);
 	assert.step("----");
-	foo(3,4,7,8);
+	foo(3, 4, 7, 8);
 	assert.step("-----");
-	foo(4,5,7,8);
+	foo(4, 5, 7, 8);
 	assert.step("------");
 	foo.reset();
 	assert.step("-------");
-	foo(3,4,7);
+	foo(3, 4, 7);
 	assert.step("--------");
 	foo.reset();
 	foo.reset();
 
 	try {
 		var pActual = bam();
-	}
-	catch (err) {
+	} catch (err) {
 		var pActual = "error";
 	}
 
-	assert.expect( 33 ); // note: 2 assertions + 31 `step(..)` calls
-	assert.verifySteps( rExpected, "check conditional effects" );
-	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
-} );
+	assert.expect(33); // note: 2 assertions + 31 `step(..)` calls
+	assert.verifySteps(rExpected, "check conditional effects");
+	assert.strictEqual(pActual, pExpected, "call without TNG wrapping context");
+});
 
-QUnit.test( "use hooks from custom hook", function test(assert){
+QUnit.test("useMemo(..)", function test(assert) {
+	function foo(num, rest) {
+		return useMemo(() => {
+			return num;
+		}, rest);
+	}
+
+	function baz(num, rest) {
+		return useMemo(() => {
+			return num * num;
+		}, rest);
+	}
+
+	var pExpected = "error";
+
+	foo = TNG(foo);
+
+	assert.strictEqual(foo(1), 1, "useMemo = 1");
+	assert.strictEqual(foo(2, [1]), 2, "useMemo = 2");
+	assert.strictEqual(foo(3, [1]), 2, "useMemo = 2 (again)");
+	assert.strictEqual(foo(4, [2]), 4, "useMemo = 4");
+	assert.strictEqual(foo(5, [2]), 4, "useMemo = 4 (again)");
+	assert.strictEqual(foo(6, [3]), 6, "useMemo = 6");
+	foo.reset();
+	assert.strictEqual(foo(7, [3]), 7, "useMemo = 7");
+	assert.strictEqual(foo(8, []), 8, "useMemo = 8");
+
+	try {
+		var pActual = baz();
+	} catch (err) {
+		var pActual = "error";
+	}
+
+	assert.strictEqual(pActual, pExpected, "call without TNG wrapping context");
+	assert.expect(9);
+});
+
+QUnit.test("use hooks from custom hook", function test(assert) {
 	function foo() {
-		var [x,setX] = useState(-1);
+		var [x, setX] = useState(-1);
 		var y = baz(0);
 
-		setX(x += 2);
+		setX((x += 2));
 
 		return `foo ${x} ${y}`;
 	}
 
 	function bar() {
-		var [x,setX] = useState(9);
+		var [x, setX] = useState(9);
 		var y = baz(10);
 
-		setX(x += 2);
+		setX((x += 2));
 
 		return `bar ${x} ${y}`;
 	}
 
 	function baz(origY) {
-		var [y,setY] = useState(origY);
-		setY(y += 2);
+		var [y, setY] = useState(origY);
+		setY((y += 2));
 		return y;
 	}
 
@@ -266,25 +320,22 @@ QUnit.test( "use hooks from custom hook", function test(assert){
 	var qExpected = "foo 3 4";
 	var tExpected = "bar 13 14";
 
-	[foo,bar] = TNG(foo,bar);
+	[foo, bar] = TNG(foo, bar);
 
 	var rActual = foo();
 	var pActual = bar();
 	var qActual = foo();
 	var tActual = bar();
 
-	assert.expect( 4 );
-	assert.strictEqual( rActual, rExpected, "initial call: foo" );
-	assert.strictEqual( pActual, pExpected, "initial call: bar" );
-	assert.strictEqual( qActual, qExpected, "second call: foo" );
-	assert.strictEqual( tActual, tExpected, "second call: bar" );
-} );
+	assert.expect(4);
+	assert.strictEqual(rActual, rExpected, "initial call: foo");
+	assert.strictEqual(pActual, pExpected, "initial call: bar");
+	assert.strictEqual(qActual, qExpected, "second call: foo");
+	assert.strictEqual(tActual, tExpected, "second call: bar");
+});
 
-
-
-
-function _hasProp(obj,prop) {
-	return Object.hasOwnProperty.call( obj, prop );
+function _hasProp(obj, prop) {
+	return Object.hasOwnProperty.call(obj, prop);
 }
 
 function _isFunction(v) {
@@ -292,9 +343,9 @@ function _isFunction(v) {
 }
 
 function _isObject(v) {
-	return v && typeof v == "object" && !_isArray( v );
+	return v && typeof v == "object" && !_isArray(v);
 }
 
 function _isArray(v) {
-	return Array.isArray( v );
+	return Array.isArray(v);
 }
