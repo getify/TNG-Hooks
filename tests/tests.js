@@ -1,12 +1,13 @@
 "use strict";
 
 QUnit.test( "API", function test(assert){
-	assert.expect( 4 );
+	assert.expect(5);
 
 	assert.ok( _isFunction( TNG ), "TNG()" );
 	assert.ok( _isFunction( useState ), "useState()" );
 	assert.ok( _isFunction( useReducer ), "useReducer()" );
 	assert.ok( _isFunction( useEffect ), "useEffect()" );
+	assert.ok(_isFunction(useMemo), "useMemo()");
 } );
 
 QUnit.test( "TNG(..)", function test(assert){
@@ -235,6 +236,43 @@ QUnit.test( "useEffect(..)", function test(assert){
 	assert.verifySteps( rExpected, "check conditional effects" );
 	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
+
+QUnit.test("useMemo(..)", function test(assert) {
+	function foo(num, rest) {
+		return useMemo(() => {
+			return num;
+		}, rest);
+	}
+
+	function baz(num, rest) {
+		return useMemo(() => {
+			return num * num;
+		}, rest);
+	}
+
+	var pExpected = "error";
+
+	foo = TNG(foo);
+
+	assert.strictEqual(foo(1), 1, "useMemo = 1");
+	assert.strictEqual(foo(2, [1]), 2, "useMemo = 2");
+	assert.strictEqual(foo(3, [1]), 2, "useMemo = 2 (again)");
+	assert.strictEqual(foo(4, [2]), 4, "useMemo = 4");
+	assert.strictEqual(foo(5, [2]), 4, "useMemo = 4 (again)");
+	assert.strictEqual(foo(6, [3]), 6, "useMemo = 6");
+	foo.reset();
+	assert.strictEqual(foo(7, [3]), 7, "useMemo = 7");
+	assert.strictEqual(foo(8, []), 8, "useMemo = 8");
+
+	try {
+		var pActual = baz();
+	} catch (err) {
+		var pActual = "error";
+	}
+
+	assert.strictEqual(pActual, pExpected, "call without TNG wrapping context");
+	assert.expect(9);
+});
 
 QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
