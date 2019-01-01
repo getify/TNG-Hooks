@@ -9,13 +9,14 @@ var testLogEntries = {};
 
 // ******************************
 
-function begin(details) {
+function begin(details){
 	printEnvNotification();
 
 	if (details.totalTests > 0) {
 		console.log(`TNG-Hooks Test Suite (${details.totalTests})`);
 		console.log("");
-	} else {
+	}
+	else {
 		console.log(`TNG-Hooks Test Suite: empty!`);
 		process.exit(1);
 	}
@@ -25,56 +26,53 @@ function testLog(details) {
 	var testId = details.testId;
 
 	testLogEntries[testId] = testLogEntries[testId] || {};
-	testLogEntries[testId][details.message] = JSON.parse(
-		JSON.stringify(details)
-	);
+	testLogEntries[testId][details.message] = JSON.parse(JSON.stringify(details));
 }
 
-function testDone(results) {
+function testDone(results){
 	var testId = results.testId;
 
 	if (results.failed > 0) {
-		console.log(
-			`Failed: '${results.name}' (${results.failed}/${results.total})`
-		);
+		console.log(`Failed: '${results.name}' (${results.failed}/${results.total})`);
 		for (let i = 0; i < results.assertions.length; i++) {
 			if (results.assertions[i].result === false) {
-				let { message, expected, actual, source } = testLogEntries[
-					testId
-				][results.assertions[i].message];
+				let { message, expected, actual, source } = testLogEntries[testId][results.assertions[i].message];
 				console.log(`  ${message}`);
 				// is there a JS exception stack trace included?
 				if (source && /^\w*Error: .+/.test(source)) {
 					console.log("");
 					console.log(`  ${source}`);
 					console.log("");
-				} else {
+				}
+				else {
 					console.log(`    expected: ${prettyPrint(expected)}`);
 					console.log(`    actual: ${prettyPrint(actual)}`);
 				}
 			}
 		}
-	} else if (results.passed > 0) {
-		console.log(
-			`Passed: '${results.name}' (${results.passed}/${results.total})`
-		);
-	} else {
+	}
+	else if (results.passed > 0) {
+		console.log(`Passed: '${results.name}' (${results.passed}/${results.total})`);
+	}
+	else {
 		console.log(`No assertions run: '${results.name}'`);
 	}
 }
 
-function done(results) {
+function done(results){
 	console.log("");
 
 	if (results.failed > 0) {
 		console.log(`Failed (${results.failed}/${results.total})`);
 		printEnvNotification();
 		process.exit(1);
-	} else if (results.passed > 0) {
+	}
+	else if (results.passed > 0) {
 		console.log(`Passed (${results.passed}/${results.total})`);
 		printEnvNotification();
 		process.exit(0);
-	} else {
+	}
+	else {
 		console.log("No tests run!");
 		printEnvNotification();
 		process.exit(1);
@@ -83,9 +81,10 @@ function done(results) {
 
 function prettyPrint(v) {
 	if (Array.isArray(v)) {
-		return `[${v.map(prettyPrint).toString()}]`;
-	} else if (v && typeof v == "object") {
-		return JSON.stringify(v, function(k, v) {
+		return `[${ v.map( prettyPrint ).toString() }]`;
+	}
+	else if (v && typeof v == "object") {
+		return JSON.stringify(v,function(k,v){
 			if (v === undefined) {
 				return null;
 			}
@@ -100,9 +99,11 @@ function printEnvNotification() {
 	console.log("**********************************");
 	if (process.env.TEST_DIST) {
 		console.log("********** TESTING DIST **********");
-	} else if (process.env.TEST_PACKAGE) {
+	}
+	else if (process.env.TEST_PACKAGE) {
 		console.log("******** TESTING PACKAGE *********");
-	} else {
+	}
+	else {
 		console.log("********** TESTING SRC ***********");
 	}
 	console.log("**********************************");

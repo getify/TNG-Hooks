@@ -22,30 +22,31 @@ For example:
 
 ```js
 // generating Articulated Functions (aka, wrapping with TNG hooks-context)
-[renderUsername, onClickUsername] = TNG(renderUsername, onClickUsername);
+[renderUsername,onClickUsername] = TNG(renderUsername,onClickUsername);
 
 function renderUsername(username) {
     // using the `useState(..)` hook
-    var [activated, setActivated] = useState(false);
+    var [activated,setActivated] = useState(false);
 
     usernameElem.innerHTML = username;
 
     // only run this code the first time
     if (!activated) {
         setActivated(true);
-        usernameElem.addEventListener("click", onClickUsername, false);
+        usernameElem.addEventListener("click",onClickUsername,false);
     }
 }
 
 function onClickUsername() {
     // using the `useState(..)` hook
-    var [expanded, setExpanded] = useState(false);
+    var [expanded,setExpanded] = useState(false);
 
     // toggles based on `expanded` state
     if (!expanded) {
         setExpanded(true);
         renderUsername(user.longName);
-    } else {
+    }
+    else {
         setExpanded(false);
         renderUsername(user.shortName);
     }
@@ -54,7 +55,7 @@ function onClickUsername() {
 // ...
 
 var usernameElem = document.getElementById("username");
-var user = { shortName: "KS", longName: "Kyle Simpson" };
+var user = { shortName: "KS", longName: "Kyle Simpson", };
 renderUsername(user.shortName);
 ```
 
@@ -70,32 +71,30 @@ For example:
 
 ```js
 function renderUsername(username) {
-    var [usernameElem, setElem] = useState(null);
+    var [usernameElem,setElem] = useState(null);
 
     // using the `useEffect(..)` hook
-    useEffect(function onActivate() {
+    useEffect(function onActivate(){
         usernameElem = document.getElementById("username");
-        usernameElem.addEventListener("click", onClickUsername, false);
+        usernameElem.addEventListener("click",onClickUsername,false);
 
         setElem(usernameElem);
-    }, []);
+    },[]);
 
     // using the `useEffect(..)` hook
-    useEffect(
-        function onUpdate() {
-            usernameElem.innerHTML = username;
-        },
-        [username]
-    );
+    useEffect(function onUpdate(){
+        usernameElem.innerHTML = username;
+    },[username]);
 }
 
 function onClickUsername() {
-    var [expanded, setExpanded] = useState(false);
+    var [expanded,setExpanded] = useState(false);
 
     if (!expanded) {
         setExpanded(true);
         renderUsername(user.longName);
-    } else {
+    }
+    else {
         setExpanded(false);
         renderUsername(user.shortName);
     }
@@ -103,7 +102,7 @@ function onClickUsername() {
 
 // ...
 
-var user = { shortName: "KS", longName: "Kyle Simpson" };
+var user = { shortName: "KS", longName: "Kyle Simpson", };
 renderUsername(user.shortName);
 ```
 
@@ -111,14 +110,14 @@ renderUsername(user.shortName);
 
 In this snippet, the first `useEffect( .. , [] )` passes an empty array (`[]`) for its list of conditional state guards, which means that effect will only ever run the first time. The second `useEffect( .., [username] )` passes `[username]` for its list of conditional state guards, which ensures that its effect will only run if the `username` value is different from the previous applied invocation of that effect.
 
-TNG hooks can also be used in a non-Articulated Function, which implies it will be treated essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html); to have a TNG hooks-context available, the non-Articulated Custom Hook Function **_must be called_** from an Articulated Function, or an error will be thrown.
+TNG hooks can also be used in a non-Articulated Function, which implies it will be treated essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html); to have a TNG hooks-context available, the non-Articulated Custom Hook Function ***must be called*** from an Articulated Function, or an error will be thrown.
 
 For example:
 
 ```js
 // Custom Hook (adopt the TNG hooks-context from `showNav()`)
 function useName(defaultName) {
-    var [name, setName] = useState(defaultName);
+    var [name,setName] = useState(defaultName);
     // ..
 }
 
@@ -134,7 +133,7 @@ showNav();
 
 See [TNG Custom Hooks](#custom-hooks) below for more information.
 
-There are also some **_[IMPORTANT RULES](#hook-call-rules)_** to keep in mind with using TNG hooks in your Articulated Functions and Custom Hooks.
+There are also some ***[IMPORTANT RULES](#hook-call-rules)*** to keep in mind with using TNG hooks in your Articulated Functions and Custom Hooks.
 
 ## API
 
@@ -180,7 +179,7 @@ They also have a method defined on them called `reset()`. The `reset()` method r
 
 ```js
 function hit() {
-    var [count, updateCount] = useState(0);
+    var [count,updateCount] = useState(0);
 
     updateCount(++count);
 
@@ -189,13 +188,13 @@ function hit() {
 
 hit = TNG(hit);
 
-hit(); // Hit count: 1
-hit(); // Hit count: 2
-hit(); // Hit count: 3
+hit();       // Hit count: 1
+hit();       // Hit count: 2
+hit();       // Hit count: 3
 
 hit.reset();
 
-hit(); // Hit count: 1
+hit();       // Hit count: 1
 ```
 
 ### `useState(..)` Hook
@@ -206,7 +205,7 @@ For example:
 
 ```js
 function hit() {
-    var [count, updateCount] = useState(0);
+    var [count,updateCount] = useState(0);
 
     updateCount(++count);
 
@@ -215,9 +214,9 @@ function hit() {
 
 hit = TNG(hit);
 
-hit(); // Hit count: 1
-hit(); // Hit count: 2
-hit(); // Hit count: 3
+hit();       // Hit count: 1
+hit();       // Hit count: 2
+hit();       // Hit count: 3
 ```
 
 The `useState(..)` hook function takes either a direct value, or a function which returns that value. Whichever way it's provided, this value is used only the first time as the initial value for that unit of state.
@@ -232,7 +231,7 @@ For example:
 
 ```js
 function hit() {
-    var [count, updateCount] = useState(0);
+    var [count,updateCount] = useState(0);
 
     updateCount(onUpdateCount);
 
@@ -245,9 +244,9 @@ function onUpdateCount(oldCount) {
 
 hit = TNG(hit);
 
-hit(); // Hit count: 1
-hit(); // Hit count: 2
-hit(); // Hit count: 3
+hit();       // Hit count: 1
+hit();       // Hit count: 2
+hit();       // Hit count: 3
 ```
 
 This approach is helpful for determining the new state unit value based on its current value, especially if, as shown above, the setter/updater function is not inside the closure and cannot access the current state unit value directly.
@@ -255,7 +254,7 @@ This approach is helpful for determining the new state unit value based on its c
 In this particular example, the line `updateCount(onUpdateCount)` could also have been written with the same outcome as:
 
 ```js
-updateCount(onUpdateCount(count));
+updateCount( onUpdateCount(count) );
 ```
 
 The `onUpdateCount(count)` is passed the current `count` value manually, which returns an updated value; that updated value is passed directly to `updateCount(..)` to be set.
@@ -270,45 +269,45 @@ For example:
 
 ```js
 function hit(amount = 1) {
-    var [count, incCounter] = useReducer(updateCounter, 0);
+    var [count,incCounter] = useReducer(updateCounter,0);
     incCounter(amount);
 
     console.log(`Hit count: ${(count += amount)}`);
 }
 
-function updateCounter(prevCount, val) {
+function updateCounter(prevCount,val) {
     return prevCount + val;
 }
 
 hit = TNG(hit);
 
-hit(); // Hit count: 1
-hit(); // Hit count: 2
-hit(); // Hit count: 3
+hit();       // Hit count: 1
+hit();       // Hit count: 2
+hit();       // Hit count: 3
 ```
 
 Optionally, you can pass a third argument to `useReducer(..)` (argument `5` below), which specifies a value to be used in invoking the reducer immediately on this initial pass:
 
 ```js
 function hit(amount = 1) {
-    var [count, incCounter] = useReducer(updateCounter, 0, 5);
+    var [count,incCounter] = useReducer(updateCounter,0,5);
     incCounter(amount);
 
     console.log(`Hit count: ${(count += amount)}`);
 }
 
-function updateCounter(prevCount, val) {
+function updateCounter(prevCount,val) {
     return prevCount + val;
 }
 
 hit = TNG(hit);
 
-hit(); // Hit count: 6
-hit(); // Hit count: 7
-hit(); // Hit count: 8
+hit();       // Hit count: 6
+hit();       // Hit count: 7
+hit();       // Hit count: 8
 ```
 
-The line `useReducer(updateCounter,0,5)` immediately invokes `updateCounter(0,5)`, which returns `5`, and the state unit (named `count` here) is then initially set to _that_ value (`5`).
+The line `useReducer(updateCounter,0,5)` immediately invokes `updateCounter(0,5)`, which returns `5`, and the state unit (named `count` here) is then initially set to *that* value (`5`).
 
 ### `useEffect(..)` Hook
 
@@ -318,11 +317,11 @@ For example:
 
 ```js
 function hit() {
-    var [count, updateCount] = useState(0);
+    var [count,updateCount] = useState(0);
 
     updateCount(onUpdateCount);
 
-    useEffect(function logAfter() {
+    useEffect(function logAfter(){
         console.log(`Hit count: ${++count}`);
     });
 
@@ -335,15 +334,15 @@ function onUpdateCount(oldCount) {
 
 hit = TNG(hit);
 
-hit(); // Hit!
-// Hit count: 1
-hit(); // Hit!
-// Hit count: 2
-hit(); // Hit!
-// Hit count: 3
+hit();       // Hit!
+             // Hit count: 1
+hit();       // Hit!
+             // Hit count: 2
+hit();       // Hit!
+             // Hit count: 3
 ```
 
-Notice in the above snippet that despite the lexical ordering, the `console.log("Hit!")` is actually executed _before_ the effect has a chance to run and log its message. That's because an effect, which is generally useful for side-effects, is run _after_ the current invocation of the Articulated Function is complete, as if it appeared in a `finally { .. }` clause.
+Notice in the above snippet that despite the lexical ordering, the `console.log("Hit!")` is actually executed *before* the effect has a chance to run and log its message. That's because an effect, which is generally useful for side-effects, is run *after* the current invocation of the Articulated Function is complete, as if it appeared in a `finally { .. }` clause.
 
 This doesn't mean async (or sync) behavior, only that it's "deferred" until "after" the Articulated Function completes. These relative terms are deliberately being left abstract at present, to allow for future evolution of TNG's functionality.
 
@@ -361,7 +360,7 @@ If the guard list is omitted, the effect is always invoked:
 
 ```js
 function updateCounter(count) {
-    useEffect(function onUpdate() {
+    useEffect(function onUpdate(){
         // unconditional effect, runs every time
     });
 }
@@ -369,14 +368,14 @@ function updateCounter(count) {
 
 If the guard list includes any values, the list's current values are compared to the previous guard values provided when the effect was last invoked; a conditional effect is invoked only if a value in the guard list has changed from before, otherwise it's skipped.
 
-As a special case of this conditional guard behavior, passing an empty list (`[]`) _every time_ is the most straight-forward way to ensure an effect runs only once, the first time:
+As a special case of this conditional guard behavior, passing an empty list (`[]`) *every time* is the most straight-forward way to ensure an effect runs only once, the first time:
 
 ```js
 function renderButton(label) {
     // only run this effect initially
-    useEffect(function onSetup() {
-        buttonElem.addEventListener("click", onClick);
-    }, []);
+    useEffect(function onSetup(){
+        buttonElem.addEventListener("click",onClick);
+    },[]);
 
     // ..
 }
@@ -390,13 +389,10 @@ For example, if an effect function closes over (uses) two variables, `name` and 
 function renderPerson(person) {
     var { name, age } = person;
 
-    useEffect(
-        function onChanged() {
-            nameElem.innerText = name;
-            ageElem.innerText = age;
-        },
-        [name, age]
-    );
+    useEffect(function onChanged(){
+        nameElem.innerText = name;
+        ageElem.innerText = age;
+    },[name,age]);
 }
 ```
 
@@ -410,11 +406,11 @@ For example, if an effect assigns a DOM event handler, and the effect may run mu
 
 ```js
 function renderButton(label) {
-    useEffect(function onSetup() {
-        buttonElem.addEventListener("click", onClick);
+    useEffect(function onSetup(){
+        buttonElem.addEventListener("click",onClick);
 
-        return function onCleanup() {
-            buttonElem.removeEventListener("click", onClick);
+        return function onCleanup(){
+            buttonElem.removeEventListener("click",onClick);
         };
     });
 
@@ -424,11 +420,11 @@ function renderButton(label) {
 
 The first time the Articulated Function `renderButton(..)` is run, the `onSetup()` effect will subscribe its event listener. The `onCleanup()` cleanup function returned from the effect will be saved by TNG internally. The next time the `onSetup()` effect is invoked, that cleanup function will first be triggered -- in this example, unsubscribing the event listener and preventing double event subscription.
 
-**Note:** Since effects are not invoked until _after_ the Articulated Function is complete, that means the cleanup function saved from the previous invocation of an effect will also not be triggered until _after_ the current invocation of the Articulated Function is complete.
+**Note:** Since effects are not invoked until *after* the Articulated Function is complete, that means the cleanup function saved from the previous invocation of an effect will also not be triggered until *after* the current invocation of the Articulated Function is complete.
 
-Each invocation of an effect triggers its own previous cleanup (if any). But the "final" invocation of a cleanup -- whenever the Articulated Function (and its effects) won't be invoked anymore -- would obviously not have anything to trigger it. If the cause of this _finality_ is the end of the lifetime of the program/browser page, this is likely not a problem.
+Each invocation of an effect triggers its own previous cleanup (if any). But the "final"  invocation of a cleanup -- whenever the Articulated Function (and its effects) won't be invoked anymore -- would obviously not have anything to trigger it. If the cause of this *finality* is the end of the lifetime of the program/browser page, this is likely not a problem.
 
-But if you need to ensure any _final_ cleanup(s) are actually triggered, the `reset()` of the Articulated Function will trigger any pending cleanups. Keep in mind that `reset()` also resets the internal TNG hooks-context of the Articulated Function, including all state slots, effects, etc.
+But if you need to ensure any *final* cleanup(s) are actually triggered, the `reset()` of the Articulated Function will trigger any pending cleanups. Keep in mind that `reset()` also resets the internal TNG hooks-context of the Articulated Function, including all state slots, effects, etc.
 
 For example:
 
@@ -466,7 +462,7 @@ computeExpensiveValue(3, 3); // 9 - From cache!
 
 ### Custom Hooks
 
-If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook **_must be called_**, directly or indirectly, from an Articulated Function, so that it has a TNG hooks-context available.
+If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook ***must be called***, directly or indirectly, from an Articulated Function, so that it has a TNG hooks-context available.
 
 For example:
 
@@ -474,7 +470,7 @@ For example:
 // a Custom Hook, ***not*** an Articulated Function
 function useHitCounter() {
     // inherited TNG hooks-context
-    var [count, updateCount] = useState(0);
+    var [count,updateCount] = useState(0);
 
     updateCount(++count);
 
@@ -493,13 +489,13 @@ function onClick(evt) {
 var fooBtn = document.getElementById("foo-btn");
 var barBtn = document.getElementById("bar-btn");
 
-fooBtn.addEventListener("click", TNG(onClick), false);
-barBtn.addEventListener("click", TNG(onClick), false);
+fooBtn.addEventListener("click",TNG(onClick),false);
+barBtn.addEventListener("click",TNG(onClick),false);
 ```
 
 **[Run Demo](https://codepen.io/getify/pen/VVbZOd?editors=1010)**
 
-**Note:** Unlike React, TNG does not **_require_** name your Custom Hooks in the format `useWHATEVER(..)` with a `use` prefix. You _can do so_ if you prefer, as we did in the above snippet. See the [rules of TNG hooks](#hook-call-rules) below.
+**Note:** Unlike React, TNG does not ***require*** name your Custom Hooks in the format `useWHATEVER(..)` with a `use` prefix. You *can do so* if you prefer, as we did in the above snippet. See the [rules of TNG hooks](#hook-call-rules) below.
 
 The `useHitCounter(..)` Custom Hook -- again, just a normal non-Articulated Function that uses a TNG hook like `useState(..)`! -- inherits the TNG hooks-context of the Articulated Function that invoked it. In this example, the invoking Articulated Function is either one of the two click handlers (produced via the two `TNG(..)` calls) that were bound, respectively, as each button's click handler.
 
@@ -509,7 +505,7 @@ In other words, the line `var [count,updateCount] = useState(0);` acts as if it 
 
 Similar to [the rules of React's hooks](https://reactjs.org/docs/hooks-rules.html#only-call-hooks-at-the-top-level), there are some rules/guides that you should keep in mind when using **TNG-Hooks**.
 
-1. It is **_absolutely required_** that TNG hooks always be called in the same order. That is, that you must never have an invocation of an Articulated Function that skips over an earlier hook call and tries to invoke one of the subsequent hook calls. **_THIS WILL BREAK!_**
+1. It is ***absolutely required*** that TNG hooks always be called in the same order. That is, that you must never have an invocation of an Articulated Function that skips over an earlier hook call and tries to invoke one of the subsequent hook calls. ***THIS WILL BREAK!***
 
     However, it is still technically possible to have hook calls in conditional situations (or even loops!), as long as you are very careful to never skip calls in an unsafe ordering manner.
 
@@ -521,18 +517,18 @@ Similar to [the rules of React's hooks](https://reactjs.org/docs/hooks-rules.htm
 
     Even though not required, it's a best practice to always call A, B, **and** C; avoid stopping short in the calling order if possible.
 
-    And these are invalid ordering scenarios that **_definitely will break_**:
+    And these are invalid ordering scenarios that ***definitely will break***:
 
     - B, C
     - A, C
     - B
     - C
 
-2. To avoid tripping on the intricasies of those ordering scenarios, it is **_strongly recommended_** that you only call TNG hooks from the top-level of the function, not inside of any loops or conditionals.
+2. To avoid tripping on the intricasies of those ordering scenarios, it is ***strongly recommended*** that you only call TNG hooks from the top-level of the function, not inside of any loops or conditionals.
 
-    This is considered a best practice in terms of readability of your functions. But it also happens to be the easiest way to ensure that the hooks are always called, and thus always called in the same order, **_which is critical_**.
+    This is considered a best practice in terms of readability of your functions. But it also happens to be the easiest way to ensure that the hooks are always called, and thus always called in the same order, ***which is critical***.
 
-3. Custom Hooks **_do not have to be_** named like `useXYZ(..)` with a `use` prefix. However, it's a _good suggestion_ to do so, because it keeps in line with the [conventions from React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html#using-a-custom-hook).
+3. Custom Hooks ***do not have to be*** named like `useXYZ(..)` with a `use` prefix. However, it's a *good suggestion* to do so, because it keeps in line with the [conventions from React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html#using-a-custom-hook).
 
 ## npm Package
 
@@ -543,7 +539,7 @@ npm install tng-hooks
 And to require it in a node script:
 
 ```js
-var { TNG, useState, useReducer /* .. */ } = require("tng-hooks");
+var { TNG, useState, useReducer, /* .. */ } = require("tng-hooks");
 ```
 
 ## Builds
@@ -561,13 +557,13 @@ However, if you download this repository via Git:
 
     - **Note:** This `npm install` has the effect of running the build for you, so no further action should be needed on your part.
 
-3. To manually run the build utility with npm:
+4. To manually run the build utility with npm:
 
     ```
     npm run build
     ```
 
-4. To run the build utility directly without npm:
+5. To run the build utility directly without npm:
 
     ```
     node scripts/build-core.js
@@ -593,11 +589,11 @@ A comprehensive test suite is included in this repository, as well as the npm pa
 
     Other npm test scripts:
 
-    - `npm run test:dist` will run the test suite against `dist/tng-hooks.js` instead of the default of `src/tng-hooks.src.js`.
+    * `npm run test:dist` will run the test suite against `dist/tng-hooks.js` instead of the default of `src/tng-hooks.src.js`.
 
-    - `npm run test:package` will run the test suite as if the package had just been installed via npm. This ensures `package.json`:`main` properly references `dist/tng-hooks.js` for inclusion.
+    * `npm run test:package` will run the test suite as if the package had just been installed via npm. This ensures `package.json`:`main` properly references `dist/tng-hooks.js` for inclusion.
 
-    - `npm run test:all` will run all three modes of the test suite.
+    * `npm run test:all` will run all three modes of the test suite.
 
 5. To run the test utility directly without npm:
 
