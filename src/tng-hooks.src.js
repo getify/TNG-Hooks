@@ -1,8 +1,14 @@
-(function UMD(context,definition){
-	/* istanbul ignore next */if (typeof define === "function" && define.amd) { define(definition); }
-	/* istanbul ignore next */else if (typeof module !== "undefined" && module.exports) { module.exports = definition(); }
-	/* istanbul ignore next */else { Object.assign(context,definition()); }
-})(this,function DEF(){
+(function UMD(context, definition) {
+	/* istanbul ignore next */ if (typeof define === "function" && define.amd) {
+		define(definition);
+	} else if (typeof module !== "undefined" && module.exports) {
+		/* istanbul ignore next */
+		module.exports = definition();
+	} else {
+		/* istanbul ignore next */
+		Object.assign(context, definition());
+	}
+})(this, function DEF() {
 	"use strict";
 
 	var buckets = new WeakMap();
@@ -13,7 +19,7 @@
 	// ******************
 
 	function TNG(...fns) {
-		fns = fns.map(function mapper(fn){
+		fns = fns.map(function mapper(fn) {
 			tngf.reset = reset;
 			return tngf;
 
