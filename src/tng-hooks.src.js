@@ -9,7 +9,7 @@
 	var tngStack = [];
 
 
-	return { TNG, useState, useReducer, useEffect, useMemo };
+	return { TNG, useState, useReducer, useEffect, useMemo, };
 
 	// ******************
 
