@@ -1,7 +1,7 @@
 "use strict";
 
 QUnit.test( "API", function test(assert){
-	assert.expect(5);
+	assert.expect( 5 );
 
 	assert.ok( _isFunction( TNG ), "TNG()" );
 	assert.ok( _isFunction( useState ), "useState()" );
