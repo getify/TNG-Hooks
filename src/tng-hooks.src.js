@@ -225,7 +225,7 @@
 		}
 	}
 
-	function useMemo(fn, ...guards) {
+	function useMemo(fn,...guards) {
 		// passed in any guards?
 		if (guards.length > 0) {
 			// only passed a single guards list?
