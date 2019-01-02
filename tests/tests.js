@@ -280,7 +280,7 @@ QUnit.test("useMemo(..)", function test(assert) {
 	}
 
 	assert.strictEqual(pActual, pExpected, "call without TNG wrapping context");
-});
+} );
 
 QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
