@@ -259,7 +259,8 @@
 			bucket.nextMemoizationIdx++;
 
 			return memoization[0];
-		} else {
+		}
+		else {
 			throw new Error(
 				"useMemo() only valid inside an Articulated Function or a Custom Hook."
 			);
