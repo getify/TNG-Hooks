@@ -94,7 +94,7 @@
 					stateSlots: [],
 					effects: [],
 					cleanups: [],
-					memoizations: []
+					memoizations: [],
 				};
 				buckets.set(tngf, bucket);
 			}
