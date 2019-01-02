@@ -246,7 +246,6 @@
 				bucket.memoizations[bucket.nextMemoizationIdx] = [];
 			}
 
-			let memoizationIdx = bucket.nextMemoizationIdx;
 			let memoization = bucket.memoizations[memoizationIdx];
 
 			// check guards?
