@@ -251,7 +251,10 @@
 			// check guards?
 			if (guardsChanged(memoization[1], guards)) {
 				// invoke the memoization
-				memoization[0] = fn();
+ 	 	 	 	try {
+				 	memoization[0] = fn();
+ 	 	 	 	}
+ 	 	 	  	finally {
 				memoization[1] = guards;
 			}
 
