@@ -255,7 +255,8 @@
 				 	memoization[0] = fn();
  	 	 	 	}
  	 	 	  	finally {
-				memoization[1] = guards;
+				 	memoization[1] = guards;
+				 }
 			}
 
 			bucket.nextMemoizationIdx++;
