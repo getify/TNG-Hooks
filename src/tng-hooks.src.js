@@ -235,8 +235,9 @@
 		}
 		// no guards passed
 		// NOTE: different handling than an empty guards list like []
+		// The function itself is then used as the only guard
 		else {
-			guards = undefined;
+			guards = [fn];
 		}
 
 		var bucket = getCurrentBucket();
