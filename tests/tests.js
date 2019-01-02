@@ -7,7 +7,7 @@ QUnit.test( "API", function test(assert){
 	assert.ok( _isFunction( useState ), "useState()" );
 	assert.ok( _isFunction( useReducer ), "useReducer()" );
 	assert.ok( _isFunction( useEffect ), "useEffect()" );
-	assert.ok(_isFunction(useMemo), "useMemo()");
+	assert.ok( _isFunction(useMemo), "useMemo()" );
 } );
 
 QUnit.test( "TNG(..)", function test(assert){
