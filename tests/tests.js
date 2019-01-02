@@ -238,15 +238,15 @@ QUnit.test( "useEffect(..)", function test(assert){
 } );
 
 QUnit.test("useMemo(..)", function test(assert) {
-	function foo(num, rest) {
-		return useMemo(() => {
-			return num;
+	function foo(item, rest) {
+		return useMemo(function memoized() {
+			return item;
 		}, rest);
 	}
 
-	function baz(num, rest) {
-		return useMemo(() => {
-			return num * num;
+	function baz(item, rest) {
+		return useMemo(function memoized() {
+			return item;
 		}, rest);
 	}
 
@@ -254,15 +254,24 @@ QUnit.test("useMemo(..)", function test(assert) {
 
 	foo = TNG(foo);
 
-	assert.strictEqual(foo(1), 1, "useMemo = 1");
-	assert.strictEqual(foo(2, [1]), 2, "useMemo = 2");
-	assert.strictEqual(foo(3, [1]), 2, "useMemo = 2 (again)");
-	assert.strictEqual(foo(4, [2]), 4, "useMemo = 4");
-	assert.strictEqual(foo(5, [2]), 4, "useMemo = 4 (again)");
-	assert.strictEqual(foo(6, [3]), 6, "useMemo = 6");
+	const itemA = {item: 'A'}
+	const itemB = {item: 'B'}
+	const itemC = {item: 'C'}
+	const itemD = {item: 'D'}
+	const itemE = {item: 'E'}
+	const itemF = {item: 'F'}
+
+	assert.expect(9);
+
+	assert.strictEqual(foo(itemA), itemA, "useMemo(itemA) === itemA");
+	assert.strictEqual(foo(itemB, [1]), itemB, "useMemo(itemB) === itemB");
+	assert.strictEqual(foo(false, [1]), itemB, "useMemo(false) === itemB (again)");
+	assert.strictEqual(foo(itemC, [2]), itemC, "useMemo(itemC) === itemC");
+	assert.strictEqual(foo(false, [2]), itemC, "useMemo(false) === itemC (again)");
+	assert.strictEqual(foo(itemD, [3]), itemD, "useMemo(itemD) === itemD");
 	foo.reset();
-	assert.strictEqual(foo(7, [3]), 7, "useMemo = 7");
-	assert.strictEqual(foo(8, []), 8, "useMemo = 8");
+	assert.strictEqual(foo(itemE, [3]), itemE, "useMemo(itemE) === itemE");
+	assert.strictEqual(foo(itemF, []), itemF, "useMemo(itemF) === itemF");
 
 	try {
 		var pActual = baz();
@@ -271,7 +280,6 @@ QUnit.test("useMemo(..)", function test(assert) {
 	}
 
 	assert.strictEqual(pActual, pExpected, "call without TNG wrapping context");
-	assert.expect(9);
 });
 
 QUnit.test( "use hooks from custom hook", function test(assert){
