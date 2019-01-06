@@ -181,7 +181,8 @@ They also have a method defined on them called `reset()`. The `reset()` method r
 function hit() {
     var [count,updateCount] = useState(0);
 
-    updateCount(++count);
+    count++;
+    updateCount(count);
 
     console.log(`Hit count: ${count}`);
 }
@@ -207,7 +208,8 @@ For example:
 function hit() {
     var [count,updateCount] = useState(0);
 
-    updateCount(++count);
+    count++;
+    updateCount(count);
 
     console.log(`Hit count: ${count}`);
 }
@@ -235,7 +237,7 @@ function hit() {
 
     updateCount(onUpdateCount);
 
-    console.log(`Hit count: ${++count}`);
+    console.log(`Hit count: ${count+1}`);
 }
 
 function onUpdateCount(oldCount) {
@@ -322,7 +324,7 @@ function hit() {
     updateCount(onUpdateCount);
 
     useEffect(function logAfter(){
-        console.log(`Hit count: ${++count}`);
+        console.log(`Hit count: ${count+1}`);
     });
 
     console.log("Hit!");
@@ -356,7 +358,7 @@ The most common scenario is when an effect involves costly DOM operations; for p
 
 The `useEffect(..)` utility accepts an optional second parameter, which is a list of values to guard whether the effect should be invoked.
 
-If the guard list is omitted, the effect is always invoked:
+The guards list is optional because sometimes you want effects to run every time. As shown above, if the guards list is omitted, the effect is always invoked:
 
 ```js
 function updateCounter(count) {
@@ -366,13 +368,15 @@ function updateCounter(count) {
 }
 ```
 
-If the guard list includes any values, the list's current values are compared to the previous guard values provided when the effect was last invoked; a conditional effect is invoked only if a value in the guard list has changed from before, otherwise it's skipped.
+But in some cases, conditional guards can be quite helpful for performance optimizations (e.g., preventing unnecessary invocations of an effect).
 
-As a special case of this conditional guard behavior, passing an empty list (`[]`) *every time* is the most straight-forward way to ensure an effect runs only once, the first time:
+If the guards list is provided and includes any values, the list's current values are compared to the previous guards list values provided when the effect was last invoked; the conditional effect is invoked only if a value in the guards list has changed from before, or if this is the first invocation of that conditional effect; otherwise the effect invocation is skipped.
+
+As a special case of this conditional guards list behavior, passing an empty list (`[]`) *every time* is the most straight-forward way to ensure an effect runs only once, the first time:
 
 ```js
 function renderButton(label) {
-    // only run this effect initially
+    // only run this effect once, initially
     useEffect(function onSetup(){
         buttonElem.addEventListener("click",onClick);
     },[]);
@@ -383,7 +387,7 @@ function renderButton(label) {
 
 The list of values you pass as the conditional guards should be any (and all!) state values that the effect depends on.
 
-For example, if an effect function closes over (uses) two variables, `name` and `age`, then the effect's conditional guard list should include both of them (as `[name,age]`). Thus, the effect will only run if either/both `name` and `age` have changed.
+For example, if an effect function closes over (uses) two variables, `name` and `age`, then the effect's conditional guards list should include both of them (as `[name,age]`). Thus, the effect will only be invoked if either `name` or `age` (or both) have changed since the last time the effect was actually invoked.
 
 ```js
 function renderPerson(person) {
@@ -396,7 +400,9 @@ function renderPerson(person) {
 }
 ```
 
-**Note:** While not required, it's a very good idea and best practice to always pass the same guard list to an effect (even though the values can and do change). In other words, avoid dynamically constructing and passing different lists (or not list at all) to the same effect across different invocations of an Articulated Function. This would lead to very confusing behavior and be more susceptible to bugs. Moreover, it would be extremely rare for an effect to depend on different state values between its invocations; try to avoid this if possible by breaking the effect into separate effects.
+As stated, the use of the guards list **is optional**. But if you choose to pass the guards list, it's a very good idea and *best practice* to always **pass the same fixed guards list** to each invocation of a conditional effect (even though the values in the list will change).
+
+In other words, avoid dynamically constructing and passing different guards lists (or sometimes no guards list at all) to the same conditional effect across different invocations. This would lead to very confusing behavior and be more susceptible to bugs. Moreover, it's likely to be rare for an effect to depend on different state values on subsequent invocations; try to avoid this if possible, perhaps by breaking into separate conditional effects, each with their own fixed guards list.
 
 #### Effect Cleanups
 
@@ -454,7 +460,8 @@ function useHitCounter() {
     // inherited TNG hooks-context
     var [count,updateCount] = useState(0);
 
-    updateCount(++count);
+    count++;
+    updateCount(count);
 
     return count;
 }
@@ -533,7 +540,7 @@ The distribution library file (`dist/tng-hooks.js`) comes pre-built with the npm
 
 However, if you download this repository via Git:
 
-1. The included build utility (`scripts/build-core.js`) builds (and ~~minifies~~) `dist/tng-hooks.js` from source. **Note:** Minification is currently disabled. **The build utility expects Node.js version 6+.**
+1. The included build utility (`scripts/build-core.js`) builds (and minifies) `dist/tng-hooks.js` from source. **The build utility expects Node.js version 6+.**
 
 2. To install the build and test dependencies, run `npm install` from the project root directory.
 
@@ -605,4 +612,4 @@ istanbul cover scripts/node-tests.js
 
 ## License
 
-All code and documentation are (c) 2018-2019 Kyle Simpson and released under the [MIT License](http://getify.mit-license.org/). A copy of the MIT License [is also included](LICENSE.txt).
+All code and documentation are (c) 2019 Kyle Simpson and released under the [MIT License](http://getify.mit-license.org/). A copy of the MIT License [is also included](LICENSE.txt).
