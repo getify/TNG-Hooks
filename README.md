@@ -6,7 +6,7 @@
 [![devDependencies](https://david-dm.org/getify/tng-hooks/dev-status.svg)](https://david-dm.org/getify/tng-hooks?type=dev)
 [![Coverage Status](https://coveralls.io/repos/github/getify/tng-hooks/badge.svg?branch=master)](https://coveralls.io/github/getify/tng-hooks?branch=master)
 
-**TNG-Hooks** (/ˈting ho͝oks/) is inspired by [React Hooks](https://reactjs.org/docs/hooks-overview.html). It's a simple implementation of hooks (i.e., `useState(..)`, `useReducer(..)`, `useEffect(..)`) that works for non-React standalone functions. It even supports the [Custom Hooks](#custom-hooks) pattern from [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html).
+**TNG-Hooks** (/ˈting ho͝oks/) is inspired by [React Hooks](https://reactjs.org/docs/hooks-overview.html). It's a simple implementation of hooks (i.e., `useState(..)`, `useReducer(..)`, `useEffect(..)`, etc) that works for non-React standalone functions. It even supports the [Custom Hooks](#custom-hooks) pattern from [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html).
 
 ## Environment Support
 
@@ -175,7 +175,11 @@ C();        // ditto
 
 Articulated Functions have the same signature as the functions they wrap, including any arguments, return value, and the ability to be invoked with a `this` context if desired.
 
-They also have a method defined on them called `reset()`. The `reset()` method resets the internal TNG hooks-context of an Articulated Function, including any state slots and effects. Also, if an Articulated Function has any pending [cleanup functions](#effect-cleanups), `reset()` will trigger them.
+#### Resetting Hooks-Context
+
+Articulated Functions also have a method defined on them called `reset()`. The `reset()` method resets the internal TNG hooks-context of an Articulated Function, including any state slots, effects, etc.
+
+For example:
 
 ```js
 function hit() {
@@ -197,6 +201,8 @@ hit.reset();
 
 hit();       // Hit count: 1
 ```
+
+Also, if an Articulated Function has any [pending effect cleanup functions](#effect-cleanups), `reset()` will trigger them. See [`useEffect(..)`](#useeffect-hook) for more information on effects and cleanups.
 
 ### `useState(..)` Hook
 
@@ -288,7 +294,7 @@ hit();       // Hit count: 2
 hit();       // Hit count: 3
 ```
 
-Optionally, you can pass a third argument to `useReducer(..)` (argument `5` below), which specifies a value to be used in invoking the reducer immediately on this initial pass:
+Optionally, you can pass a third argument to `useReducer(..)` (value `5` in the following snippet), which specifies a value to be used in invoking the reducer immediately on this initial pass:
 
 ```js
 function hit(amount = 1) {
@@ -356,9 +362,9 @@ A conditional effect is invoked only under certain conditions, which can be quit
 
 The most common scenario is when an effect involves costly DOM operations; for performance reasons, you'd only want those DOM operations to be processed if that part of the DOM actually needed to be updated because some related state values had changed. If the state values haven't changed, a conditional effect prevents the unnecessary DOM operations by skipping the effect.
 
-The `useEffect(..)` utility accepts an optional second parameter, which is a list of values to guard whether the effect should be invoked.
+The `useEffect(..)` utility accepts an optional second argument, which is a list of values to guard whether the effect should be invoked. See also the related discussion of the [input-guards list for `useMemo(..)`](#user-content-inputguards).
 
-The guards list is optional because sometimes you want effects to run every time. As shown above, if the guards list is omitted, the effect is always invoked:
+`useEffect(..)`'s guards list is optional because sometimes effects should be invoked every time. As shown above, if the guards list is omitted, the effect is always invoked:
 
 ```js
 function updateCounter(count) {
@@ -366,11 +372,15 @@ function updateCounter(count) {
         // unconditional effect, runs every time
     });
 }
+
+updateCounter = TNG(updateCounter);
 ```
 
 But in some cases, conditional guards can be quite helpful for performance optimizations (e.g., preventing unnecessary invocations of an effect).
 
 If the guards list is provided and includes any values, the list's current values are compared to the previous guards list values provided when the effect was last invoked; the conditional effect is invoked only if a value in the guards list has changed from before, or if this is the first invocation of that conditional effect; otherwise the effect invocation is skipped.
+
+<a name="emptyguards"></a>
 
 As a special case of this conditional guards list behavior, passing an empty list (`[]`) *every time* is the most straight-forward way to ensure an effect runs only once, the first time:
 
@@ -383,6 +393,8 @@ function renderButton(label) {
 
     // ..
 }
+
+renderButton = TNG(renderButton);
 ```
 
 The list of values you pass as the conditional guards should be any (and all!) state values that the effect depends on.
@@ -398,7 +410,11 @@ function renderPerson(person) {
         ageElem.innerText = age;
     },[name,age]);
 }
+
+renderPerson = TNG(renderPerson);
 ```
+
+<a name="effectsameguards"></a>
 
 As stated, the use of the guards list **is optional**. But if you choose to pass the guards list, it's a very good idea and *best practice* to always **pass the same fixed guards list** to each invocation of a conditional effect (even though the values in the list will change).
 
@@ -422,15 +438,17 @@ function renderButton(label) {
 
     // ..
 }
+
+renderButton = TNG(renderButton);
 ```
 
-The first time the Articulated Function `renderButton(..)` is run, the `onSetup()` effect will subscribe its event listener. The `onCleanup()` cleanup function returned from the effect will be saved by TNG internally. The next time the `onSetup()` effect is invoked, that cleanup function will first be triggered -- in this example, unsubscribing the event listener and preventing double event subscription.
+The first time the Articulated Function `renderButton(..)` is invoked, the `onSetup()` effect will subscribe its event listener. The `onCleanup()` cleanup function returned from the effect will be saved by TNG internally. The next time `renderButton(..)` is invoked (and thus the `onSetup()` effect is invoked), the saved previous `onCleanup()` function will *first* be triggered -- in this example, unsubscribing the event listener and preventing a subsequent double event subscription.
 
 **Note:** Since effects are not invoked until *after* the Articulated Function is complete, that means the cleanup function saved from the previous invocation of an effect will also not be triggered until *after* the current invocation of the Articulated Function is complete.
 
-Each invocation of an effect triggers its own previous cleanup (if any). But the "final"  invocation of a cleanup -- whenever the Articulated Function (and its effects) won't be invoked anymore -- would obviously not have anything to trigger it. If the cause of this *finality* is the end of the lifetime of the program/browser page, this is likely not a problem.
+Each invocation of an effect triggers its own previous cleanup (if any). But the "final"  invocation of a cleanup -- whenever the Articulated Function (and its effects) won't be invoked anymore -- would obviously not have anything to trigger it. If the cause of this *final state* is the end of the lifetime of the program/browser page, this is likely not a problem.
 
-But if you need to ensure any *final* cleanup(s) are actually triggered, the `reset()` of the Articulated Function will trigger any pending cleanups. Keep in mind that `reset()` also resets the internal TNG hooks-context of the Articulated Function, including all state slots, effects, etc.
+But if you need to ensure manually that any pending *final* cleanup(s) are actually triggered, the [`reset()` method of the Articulated Function](#resetting-hooks-context) will trigger any pending cleanups.
 
 For example:
 
@@ -448,23 +466,108 @@ renderButton("Undo...");
 renderButton.reset();
 ```
 
+Keep in mind that `reset()` also resets the internal TNG hooks-context of the Articulated Function, including all state slots, effects, etc.
+
 ### `useMemo(..)` Hook
 
-Like [React's `useMemo(..)` hook](https://reactjs.org/docs/hooks-reference.html#usememo), the TNG `useMemo(..)` hook will conditionally evaluate, cache, and return any given value based on the guards passed. Memoization has many applications, but the most common one is to only perform expensive calculations when necessary.
+Like [React's `useMemo(..)` hook](https://reactjs.org/docs/hooks-reference.html#usememo), the TNG `useMemo(..)` hook will invoke a function and return its value. But additionally, this return value is memoized (aka "remembered") so that if the same function (exact same reference!) is evaluated again, the function won't actually be invoked, but its memoized value will be returned.
+
+Memoization of a function's return value can be a very helpful performance optimization, preventing the function from being called unnecessarily when the same value would be returned anyway. Memoization should only be used when a function is likely to be called multiple times (with the same output returned), where this performance optimization will be beneficial.
+
+Keep in mind that memoization means TNG stores the last return value output for each memoized function, which could have implications on memory usage and/or GC behavior. Only memoize functions if they match this intended usage and performance pattern.
+
+**Note:** `useMemo(..)` does not pass any arguments when invoking the function. The memoized function must therefore already have access to any necessary "inputs", either by closure or some other means, and should use only those inputs to produce its output. A memoized function should always return the same output given the same *state* of all its inputs. Otherwise, any expected differing output would not be returned, which would almost certainly cause bugs in the program.
 
 For example:
 
 ```js
-function computeExpensiveValue(a, b) {
-    return useMemo(() => a * b, [a, b]);
+function computeMeaningOfLife() {
+    // ..
+    console.log("Computing...");
+    return 42;
 }
 
-computeExpensiveValue(2, 3); // 6
-computeExpensiveValue(2, 3); // 6 - From cache!
-computeExpensiveValue(2, 3); // 6 - From cache!
-computeExpensiveValue(3, 3); // 9
-computeExpensiveValue(3, 3); // 9 - From cache!
+function askTheQuestion() {
+    var v = useMemo(computeMeaningOfLife);
+    return v;
+}
+
+askTheQuestion = TNG(askTheQuestion);
+
+askTheQuestion();       // Computing...
+                        // 42
+askTheQuestion();       // 42
 ```
+
+In this snippet, the first invocation of `askTheQuestion()` invokes the `computeMeaningOfLife()` function. But on the second invocation of `askTheQuestion()`, the memoized `42` output is returned without invoking `computeMeaningOfLife()`.
+
+In that above snippet, across both invocations, the exact same function reference to `computeMeaningOfLife` is passed to `useMemo(..)`. But if instead a different function reference is passed, it will always be invoked.
+
+In the following snippet, the `computeMeaningOfLife()` is a nested function -- in this case, an inline function expression -- and is thus different for each invocation of the Articulated Function `askTheQuestion()`. As a result, `computeMeaningOfLife()` is always invoked, defeating the whole point of memoization:
+
+```js
+function askTheQuestion() {
+    var v = useMemo(function computeMeaningOfLife() {
+        // ..
+        console.log("Computing...");
+        return 42;
+    });
+    return v;
+}
+
+askTheQuestion = TNG(askTheQuestion);
+
+askTheQuestion();       // Computing...
+                        // 42
+askTheQuestion();       // Computing...
+                        // 42
+```
+
+It appears as if nested (inside the Articulated Function) functions -- whether inline expressions or just inner function declarations -- cannot be usefully memoized, which seems like a major drawback!
+
+<a name="inputguards"></a>
+
+However, this nested function drawback can be addressed. Similar to [conditional effects via the optional second argument to `useEffect(..)`](#conditional-effects), `useMemo(..)` accepts an optional second argument: an input-guards list.
+
+While the input-guards list is strictly optional, you will probably want to use it most of the time, especially since it enables proper memoization of nested functions.
+
+For example:
+
+```js
+function getW(x,y) {
+    var z = 3 * (x + y);
+
+    var w = useMemo(function computeW(){
+        return x * y / z;
+    },[x,y,z]);
+
+    return w;
+}
+
+getW = TNG(getW);
+
+getW(3,5);      // 0.625
+getW(3,5);      // 0.625 -- memoized!
+getW(4,6);      // 0.8
+```
+
+The `[x,y,z]` array in this snippet acts as the input-guards list for the memoized `computeW()` nested function.
+
+The first invocation of `getW(..)` passes `[3,5,24]` as the input-guards list to `useMemo(..)`, and which invokes the function, producing the `0.625` output. The second invocation of `getW(..)` passes the same input-guards list values (`3`, `5`, and `24`) into `useMemo(..)`, so the `computeW()` function is not invoked, and the previous return value of `0.625` is simply returned. The third invocation of `getW(..)` passes in `[4,6,30]` as the input-guards list, so `computeW()` is now invoked again, this time producing `0.8`.
+
+Though it may be tempting to think of the input-guards list as "conditional memoization", similar to [conditional effects](#conditional-effects) based on their guards list, the meaning here is slightly different. It is still conditional invocation, but with a different motivation.
+
+The memoization input-guards list should contain all the memoized function's "inputs": any value the function relies on, that might change over time. These values are not actually passed in as arguments; they just represent "inputs" conceptually, not directly.
+
+The values in this list should not be thought of as conditionally invoking the memoized function, but rather as deciding if the function *would* produce a new value if invoked.
+
+If any of the input-guards have changed, the assumption is that the memoized function would produce a new output, so it *should* be invoked to get that new output. But if they haven't changed, the assumption is that the already memoized output value is still the expected return value, so the memoized function can safely be skipped.
+
+In other words, the better mental model here is: **the input-guards list determines if the current memoized value is still valid or not.**
+
+Similar to [`useEffect(..)`](#user-content-emptyguards), always passing an empty input-guards list `[]` to `useMemo(..)` ensures that the memoized function will only ever be invoked once. Also similar to the [discussion of using the same guards list for `useEffect(..)`](#user-content-effectsameguards), it's best practice that if you pass an input-guards list to `useMemo(..)`, always pass the same list (even though its values may change).
+
+**Note:** As shown above, passing an input-guards list produces the memoization behavior (conditional skipping) even for a nested function, which addresses the previously discussed drawback. Further, if you omit the input-guards list (not just passing the `[]` empty list!), the function reference itself becomes the only input-guard. So, if the function is exactly the same reference each time, its memoized output value will always be returned. But if the function reference is different each time (as it is with nested functions), it always has to be invoked. **Bottom Line: Only omit the input-guards list if you will always be passing the same function reference.**
 
 ### Custom Hooks
 
@@ -512,7 +615,7 @@ In other words, the line `var [count,updateCount] = useState(0);` acts as if it 
 
 Similar to [the rules of React's hooks](https://reactjs.org/docs/hooks-rules.html#only-call-hooks-at-the-top-level), there are some rules/guides that you should keep in mind when using **TNG-Hooks**.
 
-1. It is ***absolutely required*** that TNG hooks always be called in the same order. That is, that you must never have an invocation of an Articulated Function that skips over an earlier hook call and tries to invoke one of the subsequent hook calls. ***THIS WILL BREAK!***
+1. It is ***required*** that TNG hooks always be called in the same order within an Articulated Function (and any Custom Hooks it calls). That is, you must never have an invocation of an Articulated Function that skips over an earlier hook call and tries to invoke one of the subsequent hook calls. ***THIS WILL BREAK!***
 
     However, it is still technically possible to have hook calls in conditional situations (or even loops!), as long as you are very careful to never skip calls in an unsafe ordering manner.
 
@@ -522,18 +625,18 @@ Similar to [the rules of React's hooks](https://reactjs.org/docs/hooks-rules.htm
     - A, B
     - A
 
-    Even though not required, it's a best practice to always call A, B, **and** C; avoid stopping short in the calling order if possible.
+    Even though stopping short in the calling order is possible, it's still a best practice for reducing confusion to always call A, B, **and** C; avoid stopping short if possible.
 
-    And these are invalid ordering scenarios that ***definitely will break***:
+    Moreover, these are invalid calling order scenarios that ***definitely will break***:
 
     - B, C
     - A, C
     - B
     - C
 
-2. To avoid tripping on the intricasies of those ordering scenarios, it is ***strongly recommended*** that you only call TNG hooks from the top-level of the function, not inside of any loops or conditionals.
+2. To avoid tripping on the intricasies of those calling order scenarios, it is ***strongly recommended*** that you only call TNG hooks from the top-level of the function, not inside of any loops or conditional statements.
 
-    This is considered a best practice in terms of readability of your functions. But it also happens to be the easiest way to ensure that the hooks are always called, and thus always called in the same order, ***which is critical***.
+    This is considered a best practice in terms of readability of your functions. But it also happens to be the easiest way to ensure that the hooks are always called, and thus always called in the same order, ***which is critical*** as described above.
 
 3. Custom Hooks ***do not have to be*** named like `useXYZ(..)` with a `use` prefix. However, it's a *good suggestion* to do so, because it keeps in line with the [conventions from React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html#using-a-custom-hook).
 

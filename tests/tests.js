@@ -7,7 +7,7 @@ QUnit.test( "API", function test(assert){
 	assert.ok( _isFunction( useState ), "useState()" );
 	assert.ok( _isFunction( useReducer ), "useReducer()" );
 	assert.ok( _isFunction( useEffect ), "useEffect()" );
-	assert.ok( _isFunction(useMemo), "useMemo()" );
+	assert.ok( _isFunction( useMemo ), "useMemo()" );
 } );
 
 QUnit.test( "TNG(..)", function test(assert){
@@ -19,12 +19,12 @@ QUnit.test( "TNG(..)", function test(assert){
 	var pExpected = "bar 3 4";
 	var qExpected = "baz 5 6";
 
-	foo = TNG(foo);
-	[bar,baz] = TNG(bar,baz);
+	foo = TNG( foo );
+	[bar,baz] = TNG( bar, baz );
 
-	var rActual = foo(1,2);
-	var pActual = bar(3,4);
-	var qActual = baz(5,6);
+	var rActual = foo( 1, 2 );
+	var pActual = bar( 3, 4 );
+	var qActual = baz( 5, 6 );
 
 	assert.expect( 3 );
 	assert.strictEqual( rActual, rExpected, "single function wrap: foo" );
@@ -34,25 +34,25 @@ QUnit.test( "TNG(..)", function test(assert){
 
 QUnit.test( "useState(..)", function test(assert){
 	function foo() {
-		var [x,setX] = useState(-2);
-		var [y,setY] = useState(function negOne() { return -1; });
+		var [x,setX] = useState( -2 );
+		var [y,setY] = useState( function negOne() { return -1; } );
 
-		setX(x += 3);
-		setY(y += 3);
+		setX( x += 3 );
+		setY( y += 3 );
 		var z = bar();
 
 		return `foo ${x} ${y} ${z}`;
 	}
 
 	function bar() {
-		var [z,setZ] = useState(0);
+		var [z,setZ] = useState( 0 );
 		z += 3;
-		setZ(z => z + 3);
+		setZ( function plus3(z) { return z + 3; } );
 		return z;
 	}
 
 	function baz() {
-		var [z,setZ] = useState(0);
+		var [z,setZ] = useState( 0 );
 		return "oops";
 	}
 
@@ -61,7 +61,7 @@ QUnit.test( "useState(..)", function test(assert){
 	var qExpected = "foo 7 8 9";
 	var tExpected = "error";
 
-	[foo,bar] = TNG(foo,bar);
+	[foo,bar] = TNG( foo, bar );
 
 	var rActual = foo();
 	var pActual = foo();
@@ -83,12 +83,12 @@ QUnit.test( "useState(..)", function test(assert){
 QUnit.test( "useReducer(..)", function test(assert){
 	function foo() {
 		var [x,increaseX] = useReducer( function computeNewX(prevX,val){ return prevX + val; }, -2 );
-		var [y,setY] = useState(-1);
+		var [y,setY] = useState( -1 );
 		var [z,increaseZ] = bar();
 
-		increaseX(3);
-		setY(y += 3);
-		increaseZ(3);
+		increaseX( 3 );
+		setY( y += 3 );
+		increaseZ( 3 );
 
 		return `foo ${x} ${y} ${z}`;
 	}
@@ -102,7 +102,7 @@ QUnit.test( "useReducer(..)", function test(assert){
 	var qExpected = "foo 4 8 6";
 	var tExpected = "error";
 
-	foo = TNG(foo);
+	foo = TNG( foo );
 
 	var rActual = foo();
 	var pActual = foo();
@@ -123,53 +123,53 @@ QUnit.test( "useReducer(..)", function test(assert){
 
 QUnit.test( "useEffect(..)", function test(assert){
 	function foo(x,y,...rest) {
-		var [count,updateCount] = useState(0);
-		updateCount(++count);
+		var [count,updateCount] = useState( 0 );
+		updateCount( ++count );
 
 		baz();	// "three"
-		useEffect(function four(){
-			assert.step("four");
+		useEffect( function four(){
+			assert.step( "four" );
 			if (rest.length === 1) {
 				return function eight(){
-					assert.step("eight");
+					assert.step( "eight" );
 				};
 			}
-		});
-		useEffect(function five(){
-			assert.step("five");
-		},[x,y]);
-		useEffect(function six(){
-			assert.step("six");
-		},...rest);
-		useEffect(function seven(){
-			assert.step("seven");
-		},rest);
+		} );
+		useEffect( function five(){
+			assert.step( "five" );
+		}, [x,y] );
+		useEffect( function six(){
+			assert.step( "six" );
+		}, ...rest );
+		useEffect( function seven(){
+			assert.step( "seven" );
+		}, rest );
 
-		assert.step(`one: ${count}`);
+		assert.step( `one: ${count}` );
 		bar();	// "two"
 	}
 
 	// Articulated Function
 	function bar() {
-		useEffect(function two(){
-			assert.step("two");
-		});
+		useEffect( function two(){
+			assert.step( "two" );
+		} );
 	}
 
 	// Custom Hook (not Articulated Function)
 	function baz() {
-		useEffect(function three(){
-			assert.step("three");
-		},[]);
+		useEffect( function three(){
+			assert.step( "three" );
+		}, [] );
 	}
 
 	// also not Articulated Function
 	function bam() {
-		assert.step("yep");
+		assert.step( "yep" );
 
-		useEffect(function nope(){
-			assert.step("nope 2");
-		});
+		useEffect( function nope(){
+			assert.step( "nope 2" );
+		} );
 
 		return "nope 1";
 	}
@@ -209,19 +209,19 @@ QUnit.test( "useEffect(..)", function test(assert){
 	];
 	var pExpected = "error";
 
-	[foo,bar] = TNG(foo,bar);
+	[foo,bar] = TNG( foo, bar );
 
 	// var rActual;
-	foo(3,4,7);
-	assert.step("----");
-	foo(3,4,7,8);
-	assert.step("-----");
-	foo(4,5,7,8);
-	assert.step("------");
+	foo( 3, 4, 7 );
+	assert.step( "----" );
+	foo( 3, 4, 7, 8 );
+	assert.step( "-----" );
+	foo( 4, 5, 7, 8 );
+	assert.step( "------" );
 	foo.reset();
-	assert.step("-------");
-	foo(3,4,7);
-	assert.step("--------");
+	assert.step( "-------" );
+	foo( 3, 4, 7 );
+	assert.step( "--------" );
 	foo.reset();
 	foo.reset();
 
@@ -237,41 +237,112 @@ QUnit.test( "useEffect(..)", function test(assert){
 	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
 
-QUnit.test("useMemo(..)", function test(assert) {
-	function foo(item, rest) {
-		return useMemo(function memoized() {
-			return item;
-		}, rest);
+QUnit.test( "useMemo(..)", function test(assert){
+	function memoized() {
+		assert.step( "two" );
+		return 2;
 	}
 
-	function baz(item, rest) {
-		return useMemo(function memoized() {
-			return item;
-		}, rest);
+	function foo(...rest) {
+		var v;
+		var [count,updateCount] = useState( 0 );
+		updateCount( ++count );
+
+		v = useMemo( function memoized(){
+			assert.step( `one: ${count}` );
+			return 1;
+		} );
+
+		assert.step( `v: ${v}` );
+
+		v = useMemo( memoized );
+
+		assert.step( `v: ${v}` );
+
+		v = useMemo( function memoized(){
+			assert.step( "three" );
+			return 3;
+		}, [] );
+
+		assert.step( `v: ${v}` );
+
+		v = useMemo( function memoized(){
+			assert.step( "four" );
+			return 4;
+		}, ...rest );
+
+		assert.step( `v: ${v}` );
+
+		v = useMemo( function memoized(){
+			assert.step( "five" );
+			return 5;
+		}, rest );
+
+		assert.step( `v: ${v}` );
 	}
 
+	function baz() {
+		assert.step( "yep" );
+
+		useMemo( function memoized() {
+			assert.step( "nope 1" );
+		} );
+
+		return "nope 2";
+	}
+
+	var rExpected = [
+		"one: 1",
+		"v: 1",
+		"two",
+		"v: 2",
+		"three",
+		"v: 3",
+		"four",
+		"v: 4",
+		"five",
+		"v: 5",
+		"----",
+		"one: 2",
+		"v: 1",
+		"v: 2",
+		"v: 3",
+		"v: 4",
+		"v: 5",
+		"-----",
+		"one: 3",
+		"v: 1",
+		"v: 2",
+		"v: 3",
+		"four",
+		"v: 4",
+		"five",
+		"v: 5",
+		"------",
+		"one: 1",
+		"v: 1",
+		"two",
+		"v: 2",
+		"three",
+		"v: 3",
+		"four",
+		"v: 4",
+		"five",
+		"v: 5",
+		"yep",
+	];
 	var pExpected = "error";
 
-	foo = TNG(foo);
+	foo = TNG( foo );
 
-	const itemA = {item: 'A'}
-	const itemB = {item: 'B'}
-	const itemC = {item: 'C'}
-	const itemD = {item: 'D'}
-	const itemE = {item: 'E'}
-	const itemF = {item: 'F'}
-
-	assert.expect(9);
-
-	assert.strictEqual(foo(itemA), itemA, "useMemo(itemA) === itemA");
-	assert.strictEqual(foo(itemB, [1]), itemB, "useMemo(itemB) === itemB");
-	assert.strictEqual(foo(false, [1]), itemB, "useMemo(false) === itemB (again)");
-	assert.strictEqual(foo(itemC, [2]), itemC, "useMemo(itemC) === itemC");
-	assert.strictEqual(foo(false, [2]), itemC, "useMemo(false) === itemC (again)");
-	assert.strictEqual(foo(itemD, [3]), itemD, "useMemo(itemD) === itemD");
+	foo( 1, 2 );
+	assert.step( "----" );
+	foo( 1, 2 );
+	assert.step( "-----" );
+	foo( 3, 4 );
+	assert.step( "------" );
 	foo.reset();
-	assert.strictEqual(foo(itemE, [3]), itemE, "useMemo(itemE) === itemE");
-	assert.strictEqual(foo(itemF, []), itemF, "useMemo(itemF) === itemF");
+	foo( 3, 4 );
 
 	try {
 		var pActual = baz();
@@ -279,31 +350,33 @@ QUnit.test("useMemo(..)", function test(assert) {
 		var pActual = "error";
 	}
 
-	assert.strictEqual(pActual, pExpected, "call without TNG wrapping context");
+	assert.expect( 40 ); // note: 2 assertions + 38 `step(..)` calls
+	assert.verifySteps( rExpected, "check memoizations" );
+	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
 
 QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
-		var [x,setX] = useState(-1);
-		var y = baz(0);
+		var [x,setX] = useState( -1 );
+		var y = baz( 0 );
 
-		setX(x += 2);
+		setX( x += 2 );
 
 		return `foo ${x} ${y}`;
 	}
 
 	function bar() {
-		var [x,setX] = useState(9);
-		var y = baz(10);
+		var [x,setX] = useState( 9 );
+		var y = baz( 10 );
 
-		setX(x += 2);
+		setX( x += 2 );
 
 		return `bar ${x} ${y}`;
 	}
 
 	function baz(origY) {
-		var [y,setY] = useState(origY);
-		setY(y += 2);
+		var [y,setY] = useState( origY );
+		setY( y += 2 );
 		return y;
 	}
 
@@ -312,7 +385,7 @@ QUnit.test( "use hooks from custom hook", function test(assert){
 	var qExpected = "foo 3 4";
 	var tExpected = "bar 13 14";
 
-	[foo,bar] = TNG(foo,bar);
+	[foo,bar] = TNG( foo, bar );
 
 	var rActual = foo();
 	var pActual = bar();
@@ -329,18 +402,6 @@ QUnit.test( "use hooks from custom hook", function test(assert){
 
 
 
-function _hasProp(obj,prop) {
-	return Object.hasOwnProperty.call( obj, prop );
-}
-
 function _isFunction(v) {
 	return typeof v == "function";
-}
-
-function _isObject(v) {
-	return v && typeof v == "object" && !_isArray( v );
-}
-
-function _isArray(v) {
-	return Array.isArray( v );
 }

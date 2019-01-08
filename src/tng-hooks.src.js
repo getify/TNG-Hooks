@@ -8,8 +8,8 @@
 	var buckets = new WeakMap();
 	var tngStack = [];
 
-
 	return { TNG, useState, useReducer, useEffect, useMemo, };
+
 
 	// ******************
 
@@ -98,6 +98,7 @@
 				};
 				buckets.set(tngf,bucket);
 			}
+
 			return buckets.get(tngf);
 		}
 	}
@@ -134,6 +135,7 @@
 					bucket.stateSlots[bucket.nextStateSlotIdx][1](initialReduction[0]);
 				}
 			}
+
 			return [...bucket.stateSlots[bucket.nextStateSlotIdx++]];
 		}
 		else {
@@ -225,19 +227,19 @@
 		}
 	}
 
-	function useMemo(fn,...guards) {
-		// passed in any guards?
-		if (guards.length > 0) {
-			// only passed a single guards list?
-			if (guards.length == 1 && Array.isArray(guards[0])) {
-				guards = guards[0];
+	function useMemo(fn,...inputGuards) {
+		// passed in any input-guards?
+		if (inputGuards.length > 0) {
+			// only passed a single inputGuards list?
+			if (inputGuards.length == 1 && Array.isArray(inputGuards[0])) {
+				inputGuards = inputGuards[0];
 			}
 		}
-		// no guards passed
-		// NOTE: different handling than an empty guards list like []
-		// The function itself is then used as the only guard
+		// no input-guards passed
+		// NOTE: different handling than an empty inputGuards list like []
 		else {
-			guards = [fn];
+			// the function itself is then used as the only input-guard
+			inputGuards = [fn];
 		}
 
 		var bucket = getCurrentBucket();
@@ -249,25 +251,25 @@
 
 			let memoization = bucket.memoizations[bucket.nextMemoizationIdx];
 
-			// check guards?
-			if (guardsChanged(memoization[1], guards)) {
-				// invoke the memoization
- 	 	 	 	try {
-				 	memoization[0] = fn();
- 	 	 	 	}
- 	 	 	  	finally {
-				 	memoization[1] = guards;
-				 }
+			// check input-guards?
+			if (guardsChanged(memoization[1],inputGuards)) {
+				try {
+					// invoke the to-be-memoized function
+					memoization[0] = fn();
+				}
+				finally {
+					// save the new input-guards
+					memoization[1] = inputGuards;
+				}
 			}
 
 			bucket.nextMemoizationIdx++;
 
+			// return the memoized value
 			return memoization[0];
 		}
 		else {
-			throw new Error(
-				"useMemo() only valid inside an Articulated Function or a Custom Hook."
-			);
+			throw new Error("useMemo() only valid inside an Articulated Function or a Custom Hook.");
 		}
 	}
 });
