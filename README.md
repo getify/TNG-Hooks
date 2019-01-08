@@ -448,6 +448,24 @@ renderButton("Undo...");
 renderButton.reset();
 ```
 
+### `useMemo(..)` Hook
+
+Like [React's `useMemo(..)` hook](https://reactjs.org/docs/hooks-reference.html#usememo), the TNG `useMemo(..)` hook will conditionally evaluate, cache, and return any given value based on the guards passed. Memoization has many applications, but the most common one is to only perform expensive calculations when necessary.
+
+For example:
+
+```js
+function computeExpensiveValue(a, b) {
+    return useMemo(() => a * b, [a, b]);
+}
+
+computeExpensiveValue(2, 3); // 6
+computeExpensiveValue(2, 3); // 6 - From cache!
+computeExpensiveValue(2, 3); // 6 - From cache!
+computeExpensiveValue(3, 3); // 9
+computeExpensiveValue(3, 3); // 9 - From cache!
+```
+
 ### Custom Hooks
 
 If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook ***must be called***, directly or indirectly, from an Articulated Function, so that it has a TNG hooks-context available.

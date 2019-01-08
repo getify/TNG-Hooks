@@ -8,8 +8,8 @@
 	var buckets = new WeakMap();
 	var tngStack = [];
 
-	return { TNG, useState, useReducer, useEffect, };
 
+	return { TNG, useState, useReducer, useEffect, useMemo, };
 
 	// ******************
 
@@ -26,6 +26,7 @@
 				var bucket = getCurrentBucket();
 				bucket.nextStateSlotIdx = 0;
 				bucket.nextEffectIdx = 0;
+				bucket.nextMemoizationIdx = 0;
 
 				try {
 					return fn.apply(this,args);
@@ -70,8 +71,10 @@
 					bucket.stateSlots.length = 0;
 					bucket.effects.length = 0;
 					bucket.cleanups.length = 0;
+					bucket.memoizations.length = 0;
 					bucket.nextStateSlotIdx = 0;
 					bucket.nextEffectIdx = 0;
+					bucket.nextMemoizationIdx = 0;
 				}
 			}
 		});
@@ -84,7 +87,15 @@
 			let tngf = tngStack[tngStack.length - 1];
 			let bucket;
 			if (!buckets.has(tngf)) {
-				bucket = { nextStateSlotIdx: 0, nextEffectIdx: 0, stateSlots: [], effects: [], cleanups: [], };
+				bucket = {
+					nextStateSlotIdx: 0,
+					nextEffectIdx: 0,
+					nextMemoizationIdx: 0,
+					stateSlots: [],
+					effects: [],
+					cleanups: [],
+					memoizations: [],
+				};
 				buckets.set(tngf,bucket);
 			}
 			return buckets.get(tngf);
@@ -211,6 +222,52 @@
 		}
 		else {
 			throw new Error("useEffect() only valid inside an Articulated Function or a Custom Hook.");
+		}
+	}
+
+	function useMemo(fn,...guards) {
+		// passed in any guards?
+		if (guards.length > 0) {
+			// only passed a single guards list?
+			if (guards.length == 1 && Array.isArray(guards[0])) {
+				guards = guards[0];
+			}
+		}
+		// no guards passed
+		// NOTE: different handling than an empty guards list like []
+		// The function itself is then used as the only guard
+		else {
+			guards = [fn];
+		}
+
+		var bucket = getCurrentBucket();
+		if (bucket) {
+			// need to create this memoization-slot for this bucket?
+			if (!(bucket.nextMemoizationIdx in bucket.memoizations)) {
+				bucket.memoizations[bucket.nextMemoizationIdx] = [];
+			}
+
+			let memoization = bucket.memoizations[bucket.nextMemoizationIdx];
+
+			// check guards?
+			if (guardsChanged(memoization[1], guards)) {
+				// invoke the memoization
+ 	 	 	 	try {
+				 	memoization[0] = fn();
+ 	 	 	 	}
+ 	 	 	  	finally {
+				 	memoization[1] = guards;
+				 }
+			}
+
+			bucket.nextMemoizationIdx++;
+
+			return memoization[0];
+		}
+		else {
+			throw new Error(
+				"useMemo() only valid inside an Articulated Function or a Custom Hook."
+			);
 		}
 	}
 });
