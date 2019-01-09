@@ -606,6 +606,30 @@ Once the `data.userID` changes (from `1` to `2`) for the third invocation of `re
 
 **Note:** This particular example is only illustrative of how the `useCallback(..)` hook works, but would actually have worked the same if the hook had not been used. It takes more complicated examples to illustrate where this hook creates clear benefits.
 
+### `useRef(..)` Hook
+
+Similar to [React's `useRef(..)` hook](https://reactjs.org/docs/hooks-reference.html#useref), the TNG `useRef(..)` hook creates an object stored persistently in a state slot (via the [`useState(..)` hook](#usestate-hook)), and creates a property on it called `current` which holds a specified initial value, if any.
+
+For example:
+
+```js
+function hit() {
+    var counter = useRef(0);
+
+    counter.current++;
+
+    console.log(`Hit count: ${counter.current}`);
+}
+
+hit = TNG(hit);
+
+hit();       // Hit count: 1
+hit();       // Hit count: 2
+hit();       // Hit count: 3
+```
+
+It may be more convenient to pass around the reference to this persistent object, and make any updates to its `current` property (or add/remove other properties), than to have to pass around both a state value and its updater function.
+
 ### Custom Hooks
 
 If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook ***must be called***, directly or indirectly, from an Articulated Function, so that it has a TNG hooks-context available.

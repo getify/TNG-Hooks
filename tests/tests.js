@@ -346,7 +346,8 @@ QUnit.test( "useMemo(..)", function test(assert){
 
 	try {
 		var pActual = baz();
-	} catch (err) {
+	}
+	catch (err) {
 		var pActual = "error";
 	}
 
@@ -453,12 +454,59 @@ QUnit.test( "useCallback(..)", function test(assert){
 
 	try {
 		var pActual = baz();
-	} catch (err) {
+	}
+	catch (err) {
 		var pActual = "error";
 	}
 
 	assert.expect( 38 ); // note: 2 assertions + 36 `step(..)` calls
 	assert.verifySteps( rExpected, "check callback memoizations" );
+	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
+} );
+
+QUnit.test( "useRef(..)", function test(assert){
+	function foo(x) {
+		var o = useRef( x );
+		o.other = (o.other || x) * 2;
+
+		assert.step( `${o.current} ${o.other}` );
+	}
+
+	function baz() {
+		assert.step( "yep" );
+
+		var o = useRef( "nope 1" );
+		assert.step(o.current);
+
+		return "nope 2";
+	}
+
+	var rExpected = [
+		"3 6",
+		"3 12",
+		"3 24",
+		"4 8",
+		"yep",
+	];
+	var pExpected = "error";
+
+	foo = TNG( foo );
+
+	foo( 3 );
+	foo( 4 );
+	foo( 5 );
+	foo.reset();
+	foo( 4 );
+
+	try {
+		var pActual = baz();
+	}
+	catch (err) {
+		var pActual = "error";
+	}
+
+	assert.expect( 7 ); // note: 2 assertions + 5 `step(..)` calls
+	assert.verifySteps( rExpected, "check refs" );
 	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
 

@@ -10,7 +10,7 @@
 
 	return {
 		TNG, useState, useReducer, useEffect,
-		useMemo, useCallback,
+		useMemo, useCallback, useRef,
 	};
 
 
@@ -282,6 +282,18 @@
 		}
 		else {
 			throw new Error("useCallback() only valid inside an Articulated Function or a Custom Hook.");
+		}
+	}
+
+	function useRef(initialValue) {
+		if (getCurrentBucket()) {
+			// create a new {} object with a `current` property,
+			// save it in a state slot
+			var [ref] = useState({ current: initialValue, });
+			return ref;
+		}
+		else {
+			throw new Error("useRef() only valid inside an Articulated Function or a Custom Hook.");
 		}
 	}
 });
