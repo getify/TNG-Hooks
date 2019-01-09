@@ -569,6 +569,43 @@ Similar to [`useEffect(..)`](#user-content-emptyguards), always passing an empty
 
 **Note:** As shown above, passing an input-guards list produces the memoization behavior (conditional skipping) even for a nested function, which addresses the previously discussed drawback. Further, if you omit the input-guards list (not just passing the `[]` empty list!), the function reference itself becomes the only input-guard. So, if the function is exactly the same reference each time, its memoized output value will always be returned. But if the function reference is different each time (as it is with nested functions), it always has to be invoked. **Bottom Line: Only omit the input-guards list if you will always be passing the same function reference.**
 
+### `useCallback(..)` Hook
+
+Like [React's `useCallback(..)` hook](https://reactjs.org/docs/hooks-reference.html#usecallback), the TNG `useCallback(..)` hook conditionally selects (via memoization) either the previous version of a function, if a set of input-guards haven't changed, or the new version of the function if the input-guards have changed.
+
+For example:
+
+```js
+function requestData(data) {
+    var cb = useCallback(
+        function onData(resp){
+            console.log(`User (${data.userID}) data: ${resp}`);
+        },
+        [data.userID]
+    );
+    ajax(API_URL,data,cb);
+}
+
+requestData = TNG(requestData);
+
+requestData({ userID: 1 });
+// User (1): ...
+
+requestData({ userID: 1 });
+// User (1): ...
+
+requestData({ userID: 2 });
+// User (2): ...
+```
+
+In this snippet, the `onData(..)` function is conditionally guarded by the input-guards list `[data.userID]`, which means that `cb` will remain the same instance of that `onData(..)` function as long as `data.userID` stays the same. In other words, the first invocation of `requestData(..)`, with `data.userID` of `1`, defines (and memoizes) an `onData(..)` nested function expression, and assigns it to `cb`.
+
+For the second invocation of `requestData(..)`, where `data.userID` is still `1`, the new `onData(..)` nested function expression is just discarded, and the previously saved `onData(..)` function reference is returned to `cb` instead.
+
+Once the `data.userID` changes (from `1` to `2`) for the third invocation of `requestData(..)`, that new `onData(..)` nested function expression replaces the previous function reference, and is returned to `cb`.
+
+**Note:** This particular example is only illustrative of how the `useCallback(..)` hook works, but would actually have worked the same if the hook had not been used. It takes more complicated examples to illustrate where this hook creates clear benefits.
+
 ### Custom Hooks
 
 If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook ***must be called***, directly or indirectly, from an Articulated Function, so that it has a TNG hooks-context available.

@@ -355,6 +355,113 @@ QUnit.test( "useMemo(..)", function test(assert){
 	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
 
+QUnit.test( "useCallback(..)", function test(assert){
+	function foo(...rest) {
+		var v;
+		var [count,updateCount] = useState( 0 );
+		updateCount( ++count );
+
+		v = useCallback( function memoized(){
+			assert.step( `one: ${count}` );
+			return count;
+		} )();
+
+		assert.step( `v: ${v}` );
+
+		v = useCallback( function memoized(){
+			assert.step( `two: ${count}` );
+			return count;
+		}, [] )();
+
+		assert.step( `v: ${v}` );
+
+		v = useCallback( function memoized(){
+			assert.step( `three: ${count}` );
+			return count;
+		}, ...rest )();
+
+		assert.step( `v: ${v}` );
+
+		v = useCallback( function memoized(){
+			assert.step( `four: ${count}` );
+			return count;
+		}, rest )();
+
+		assert.step( `v: ${v}` );
+	}
+
+	function baz() {
+		assert.step( "yep" );
+
+		useCallback( function memoized() {
+			assert.step( "nope 1" );
+		} )();
+
+		return "nope 2";
+	}
+
+	var rExpected = [
+		"one: 1",
+		"v: 1",
+		"two: 1",
+		"v: 1",
+		"three: 1",
+		"v: 1",
+		"four: 1",
+		"v: 1",
+		"----",
+		"one: 2",
+		"v: 2",
+		"two: 1",
+		"v: 1",
+		"three: 1",
+		"v: 1",
+		"four: 1",
+		"v: 1",
+		"-----",
+		"one: 3",
+		"v: 3",
+		"two: 1",
+		"v: 1",
+		"three: 3",
+		"v: 3",
+		"four: 3",
+		"v: 3",
+		"------",
+		"one: 1",
+		"v: 1",
+		"two: 1",
+		"v: 1",
+		"three: 1",
+		"v: 1",
+		"four: 1",
+		"v: 1",
+		"yep",
+	];
+	var pExpected = "error";
+
+	foo = TNG( foo );
+
+	foo( 1 );
+	assert.step( "----" );
+	foo( 1 );
+	assert.step( "-----" );
+	foo( 3, 4 );
+	assert.step( "------" );
+	foo.reset();
+	foo( 3, 4 );
+
+	try {
+		var pActual = baz();
+	} catch (err) {
+		var pActual = "error";
+	}
+
+	assert.expect( 38 ); // note: 2 assertions + 36 `step(..)` calls
+	assert.verifySteps( rExpected, "check callback memoizations" );
+	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
+} );
+
 QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
 		var [x,setX] = useState( -1 );

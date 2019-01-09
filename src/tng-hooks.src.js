@@ -8,7 +8,10 @@
 	var buckets = new WeakMap();
 	var tngStack = [];
 
-	return { TNG, useState, useReducer, useEffect, useMemo, };
+	return {
+		TNG, useState, useReducer, useEffect,
+		useMemo, useCallback,
+	};
 
 
 	// ******************
@@ -270,6 +273,15 @@
 		}
 		else {
 			throw new Error("useMemo() only valid inside an Articulated Function or a Custom Hook.");
+		}
+	}
+
+	function useCallback(fn,...inputGuards) {
+		if (getCurrentBucket()) {
+			return useMemo(function callback(){ return fn; },...inputGuards);
+		}
+		else {
+			throw new Error("useCallback() only valid inside an Articulated Function or a Custom Hook.");
 		}
 	}
 });
