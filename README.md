@@ -1,6 +1,6 @@
 # TNG-Hooks
 
-[![Build Status](https://travis-ci.org/getify/tng-hooks.svg?branch=master)](https://travis-ci.org/getify/tng-hooks)
+[![Build Status](https://travis-ci.org/getify/tng-hooks.svg?branch=master)](https://travis-ci.org/getify/TNG-Hooks)
 [![npm Module](https://badge.fury.io/js/tng-hooks.svg)](https://www.npmjs.org/package/tng-hooks)
 [![Dependencies](https://david-dm.org/getify/tng-hooks.svg)](https://david-dm.org/getify/tng-hooks)
 [![devDependencies](https://david-dm.org/getify/tng-hooks/dev-status.svg)](https://david-dm.org/getify/tng-hooks?type=dev)
@@ -715,7 +715,7 @@ var { TNG, useState, useReducer, /* .. */ } = require("tng-hooks");
 
 ## Builds
 
-[![Build Status](https://travis-ci.org/getify/tng-hooks.svg?branch=master)](https://travis-ci.org/getify/tng-hooks)
+[![Build Status](https://travis-ci.org/getify/tng-hooks.svg?branch=master)](https://travis-ci.org/getify/TNG-Hooks)
 [![npm Module](https://badge.fury.io/js/tng-hooks.svg)](https://www.npmjs.org/package/tng-hooks)
 
 The distribution library file (`dist/tng-hooks.js`) comes pre-built with the npm package distribution, so you shouldn't need to rebuild it under normal circumstances.
