@@ -10,7 +10,7 @@
 
 	return {
 		TNG, useState, useReducer, useEffect,
-		useMemo, useCallback, useRef,
+		useMemo, useCallback, useRef, useDeferred
 	};
 
 
@@ -295,5 +295,23 @@
 		else {
 			throw new Error("useRef() only valid inside an Articulated Function or a Custom Hook.");
 		}
-	}
+  }
+
+  function useDeferred() {
+    if (getCurrentBucket()) {
+      const [deferred] = useState((function () {
+        let resolve, reject;
+        let pr = new Promise((res, rej) => {
+          resolve = res;
+          reject = rej;
+        })
+
+        return { pr, resolve, reject }
+      })())
+
+      return deferred
+    } else {
+      throw new Error("useDeferred() only valid inside an Articulated Function or a Custom Hook.")
+    }
+  }
 });
