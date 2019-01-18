@@ -510,6 +510,69 @@ QUnit.test( "useRef(..)", function test(assert){
 	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
 
+QUnit.test("useDeferred(..)", function test(assert) {
+  var done = assert.async(2);
+
+  var fooExpected = [
+    "foo - setup",
+    "foo - before resolve",
+    "foo - after resolve",
+    "bar - reject",
+    "foo - resolve"
+  ]
+
+  function foo() {
+    var d = useDeferred();
+
+    assert.step("foo - setup");
+    d.pr.then(payload => {
+      assert.step(`${payload}`)
+      assert.verifySteps(fooExpected, "check order");
+      done();
+    })
+
+    assert.step("foo - before resolve");
+    d.resolve("foo - resolve")
+    assert.step("foo - after resolve")
+  }
+
+  function bar() {
+    var d = useDeferred();
+
+    d.pr.then(payload => {
+      assert.step("shouldn't hit")
+    }, err => {
+      assert.step(err)
+      done();
+    })
+
+    d.reject("bar - reject")
+  }
+
+  function baz() {
+    var d = useDeferred();
+
+    return "nope 1";
+  }
+
+  var bazExpected = "error";
+  var bazActual;
+
+  foo = TNG(foo);
+  bar = TNG(bar);
+  bar();
+  foo()
+
+  try {
+    baz();
+  } catch (err) {
+    bazActual = "error";
+  }
+
+  assert.expect(7) // note: 2 assertions + 5 `step(...)` calls
+  assert.strictEqual(bazActual, bazExpected, "call without TNG wrapping context")
+});
+
 QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
 		var [x,setX] = useState( -1 );
