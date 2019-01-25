@@ -6,15 +6,25 @@
 [![devDependencies](https://david-dm.org/getify/tng-hooks/dev-status.svg)](https://david-dm.org/getify/tng-hooks?type=dev)
 [![Coverage Status](https://coveralls.io/repos/github/getify/tng-hooks/badge.svg?branch=master)](https://coveralls.io/github/getify/tng-hooks?branch=master)
 
-**TNG-Hooks** (/ˈting ho͝oks/) is inspired by [React Hooks](https://reactjs.org/docs/hooks-overview.html). It's a simple implementation of hooks (i.e., `useState(..)`, `useReducer(..)`, `useEffect(..)`, etc) that works for non-React standalone functions. It even supports the [Custom Hooks](#custom-hooks) pattern from [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html).
+## Overview
 
-## Environment Support
+**TNG-Hooks** (/ˈting ho͝oks/) provides hooks (i.e., `useState(..)`, `useReducer(..)`, `useEffect(..)`, etc) for decorating regular, standalone functions with useful state and effects management. Custom hooks are also supported.
 
-This utility uses ES6 (aka ES2015) features. If you need to support environments prior to ES6, transpile it first (with Babel, etc).
+TNG is inspired by the conventions and capabilities of [React's Hooks](https://reactjs.org/docs/hooks-overview.html), so much of TNG resembles React Hooks. The growing collections of information and [examples](https://usehooks.com/) about React's Hooks will also be useful in sparking ideas for TNG usage.
 
-## Quick Overview
+However, this is a separate project with its own motivations and specific behaviors. TNG will remain similar to React Hooks where it makes sense, but there will also be deviations as appropriate.
 
-**TNG-Hooks** provides the `TNG(..)` utility to generate **Articulated Functions**, which are just regular, standalone (e.g., non-React) functions wrapped with a TNG hooks-context -- so you can use TNG hooks inside them.
+### Articulated Functions
+
+An **Articulated Function** is the TNG equivalent of a React function component: a regular, standalone function decorated with a TNG hooks-context, which means hooks are valid to use during its invocation.
+
+Unlike a normal pure function, which takes all its inputs and computes output(s) without producing any side-effects, the most straightforward way to think about an Articulated Function is that it is **stateful** (maintains its own state) and **effectful** (spins off side-effects).
+
+These will often be used to model the rendering of UI components, as is seen with React components. But Articulated Functions are useful for tracking any kind of state, as well as applying various side effects (asynchrony, Ajax calls, database queries, etc).
+
+Similar to [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html), TNG's Articulated Functions can also invoke other non-Articulated Functions, which allows those function calls to adopt the active hooks-context and use any current hooks, as if they *were* Articulated. These non-articulated-but-hooks-capable functions are [TNG's Custom Hooks](#custom-hooks).
+
+### Quick Examples
 
 One of the most common TNG hooks is the [`useState(..)` hook](#usestate-hook), which stores persistent (across invocations) state for an Articulated Function, essentially the same as [React's `useState(..)` hook](https://reactjs.org/docs/hooks-state.html) does for a function component.
 
@@ -137,13 +147,11 @@ There are also some ***[IMPORTANT RULES](#hook-call-rules)*** to keep in mind wi
 
 ## API
 
-**TNG-Hooks** is inspired by the conventions and capabilities of [React's Hooks](https://reactjs.org/docs/hooks-overview.html). As such, much of TNG resembles React Hooks.
-
-**Note:** Despite the semblance, **TNG-Hooks** is a separate project with its own motivations and specific behaviors. Where it makes sense, we'll stay similar to React Hooks, but there will be deviations where those make sense.
+TNG provides hooks which deliberately resemble React's hooks. However, as TNG is a separate project, there are some important nuances and differences to pay close attention to.
 
 ### `TNG(..)`
 
-`TNG(..)` wraps one or more functions, giving each a unique, persistent TNG hooks-context across its invocations, respectively. These wrapped functions are herein referred to as **Articulated Functions**.
+`TNG(..)` is a utility to produce [Articulated Functions](#articulated-functions) from normal, stanadlone functions. Articulated Functions adopt an active hooks-context to enable hooks capabilities.
 
 For example:
 
@@ -168,7 +176,7 @@ var [A,B] = TNG(foo,foo);
 var C = TNG(foo);
 
 // later:
-A();        // with its own separate TNG hooks-context
+A();        // own separate TNG hooks-context
 B();        // ditto
 C();        // ditto
 ```
@@ -280,7 +288,7 @@ function hit(amount = 1) {
     var [count,incCounter] = useReducer(updateCounter,0);
     incCounter(amount);
 
-    console.log(`Hit count: ${(count += amount)}`);
+    console.log(`Hit count: ${count+amount}`);
 }
 
 function updateCounter(prevCount,val) {
@@ -291,7 +299,7 @@ hit = TNG(hit);
 
 hit();       // Hit count: 1
 hit();       // Hit count: 2
-hit();       // Hit count: 3
+hit(8);      // Hit count: 10
 ```
 
 Optionally, you can pass a third argument to `useReducer(..)` (value `5` in the following snippet), which specifies a value to be used in invoking the reducer immediately on this initial pass:
@@ -301,7 +309,7 @@ function hit(amount = 1) {
     var [count,incCounter] = useReducer(updateCounter,0,5);
     incCounter(amount);
 
-    console.log(`Hit count: ${(count += amount)}`);
+    console.log(`Hit count: ${count+amount}`);
 }
 
 function updateCounter(prevCount,val) {
@@ -312,10 +320,10 @@ hit = TNG(hit);
 
 hit();       // Hit count: 6
 hit();       // Hit count: 7
-hit();       // Hit count: 8
+hit(3);      // Hit count: 10
 ```
 
-The line `useReducer(updateCounter,0,5)` immediately invokes `updateCounter(0,5)`, which returns `5`, and the state unit (named `count` here) is then initially set to *that* value (`5`).
+The line `useReducer(updateCounter,0,5)` immediately invokes `updateCounter(0,5)`, which returns `5`, and the state unit (named `count` here) is then initially set to *that* `5` value.
 
 ### `useEffect(..)` Hook
 
@@ -501,9 +509,9 @@ askTheQuestion();       // 42
 
 In this snippet, the first invocation of `askTheQuestion()` invokes the `computeMeaningOfLife()` function. But on the second invocation of `askTheQuestion()`, the memoized `42` output is returned without invoking `computeMeaningOfLife()`.
 
-In that above snippet, across both invocations, the exact same function reference to `computeMeaningOfLife` is passed to `useMemo(..)`. But if instead a different function reference is passed, it will always be invoked.
+In that above snippet, across both invocations, the exact same function reference of `computeMeaningOfLife` is passed to `useMemo(..)`. But each time a different function reference is passed, it will be invoked.
 
-In the following snippet, the `computeMeaningOfLife()` is a nested function -- in this case, an inline function expression -- and is thus different for each invocation of the Articulated Function `askTheQuestion()`. As a result, `computeMeaningOfLife()` is always invoked, defeating the whole point of memoization:
+In the following snippet, the `computeMeaningOfLife()` is a nested function -- in this case, an inline function expression -- and is thus different for each invocation of `askTheQuestion()`. As a result, `computeMeaningOfLife()` is always invoked, defeating the whole point of memoization:
 
 ```js
 function askTheQuestion() {
@@ -632,7 +640,7 @@ It may be more convenient to pass around the reference to this persistent object
 
 ### Custom Hooks
 
-If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook ***must be called***, directly or indirectly, from an Articulated Function, so that it has a TNG hooks-context available.
+If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook ***must be called***, directly or indirectly, from an Articulated Function, so that it has an active TNG hooks-context available to use.
 
 For example:
 
@@ -648,7 +656,7 @@ function useHitCounter() {
     return count;
 }
 
-// will be TNG(..) Articulated two times, once as
+// will be TNG(..) Articulated twice, once as
 // each button's click handler
 function onClick(evt) {
     // using a Custom Hook
@@ -660,13 +668,14 @@ function onClick(evt) {
 var fooBtn = document.getElementById("foo-btn");
 var barBtn = document.getElementById("bar-btn");
 
+// each click handler is an Articulated `onClick()`
 fooBtn.addEventListener("click",TNG(onClick),false);
 barBtn.addEventListener("click",TNG(onClick),false);
 ```
 
 **[Run Demo](https://codepen.io/getify/pen/VVbZOd?editors=1010)**
 
-**Note:** Unlike React, TNG does not ***require*** name your Custom Hooks in the format `useWHATEVER(..)` with a `use` prefix. You *can do so* if you prefer, as we did in the above snippet. See the [rules of TNG hooks](#hook-call-rules) below.
+**Note:** Unlike React, TNG does not ***require*** naming Custom Hooks in the format `useWHATEVER(..)` with a `use` prefix. You *can do so* if you prefer, as we did in the above snippet. See the [rules of TNG hooks](#hook-call-rules) below.
 
 The `useHitCounter(..)` Custom Hook -- again, just a normal non-Articulated Function that uses a TNG hook like `useState(..)`! -- inherits the TNG hooks-context of the Articulated Function that invoked it. In this example, the invoking Articulated Function is either one of the two click handlers (produced via the two `TNG(..)` calls) that were bound, respectively, as each button's click handler.
 
@@ -676,7 +685,7 @@ In other words, the line `var [count,updateCount] = useState(0);` acts as if it 
 
 Similar to [the rules of React's hooks](https://reactjs.org/docs/hooks-rules.html#only-call-hooks-at-the-top-level), there are some rules/guides that you should keep in mind when using **TNG-Hooks**.
 
-1. It is ***required*** that TNG hooks always be called in the same order within an Articulated Function (and any Custom Hooks it calls). That is, you must never have an invocation of an Articulated Function that skips over an earlier hook call and tries to invoke one of the subsequent hook calls. ***THIS WILL BREAK!***
+1. All TNG hooks ***must always*** be called in the same order within an Articulated Function (and any Custom Hooks it calls). That is, you must never have an invocation of an Articulated Function that skips over an earlier hook call and tries to invoke one of the subsequent hook calls. ***THIS WILL BREAK!***
 
     However, it is still technically possible to have hook calls in conditional situations (or even loops!), as long as you are very careful to never skip calls in an unsafe ordering manner.
 
@@ -700,6 +709,10 @@ Similar to [the rules of React's hooks](https://reactjs.org/docs/hooks-rules.htm
     This is considered a best practice in terms of readability of your functions. But it also happens to be the easiest way to ensure that the hooks are always called, and thus always called in the same order, ***which is critical*** as described above.
 
 3. Custom Hooks ***do not have to be*** named like `useXYZ(..)` with a `use` prefix. However, it's a *good suggestion* to do so, because it keeps in line with the [conventions from React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html#using-a-custom-hook).
+
+## Environment Support
+
+This utility uses ES6 (aka ES2015) features. If you need to support environments prior to ES6, transpile it first (with Babel, etc).
 
 ## npm Package
 
