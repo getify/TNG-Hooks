@@ -1,6 +1,6 @@
 {
 	"name": "tng-hooks",
-	"version": "4.1.4",
+	"version": "4.1.5",
 	"description": "Provides React-inspired 'hooks' like useState(..) for stand-alone functions",
 	"main": "./dist/tng-hooks.js",
 	"scripts": {
@@ -19,7 +19,7 @@
 	"devDependencies": {
 		"coveralls": "~3.0.2",
 		"qunit": "~2.9.1",
-		"terser": "~3.14.1"
+		"terser": "~3.16.1"
 	},
 	"repository": "getify/tng-hooks",
 	"keywords": [
