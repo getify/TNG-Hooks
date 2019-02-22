@@ -640,7 +640,7 @@ It may be more convenient to pass around the reference to this persistent object
 
 ### `useThrottle(..)` Hook
 
-The TNG `useThrottle(..)` hook creates an array of [function: () => {}, timer: Number, lastExecution: Number ] and stored persistently in a state slot (via the [`useState(..)` hook](#usestate-hook)).
+The TNG `useThrottle(..)` hook creates an array of [function: () => {}, timer: Number, execute: Number ] and stored persistently in a state slot (via the [`useState(..)` hook](#usestate-hook)).
 `useThrottle(...)` returns a new function wrapper that will invoke the given function only if the last execution occurred before the current time - timer (the given argument)
 
 For example:
