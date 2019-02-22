@@ -18,6 +18,7 @@ else {
 }
 
 global.QUnit = require("qunit");
+global.sinon = require('sinon');
 
 require("../tests/qunit.config.js");
 require("../tests/tests.js");

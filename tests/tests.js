@@ -510,6 +510,57 @@ QUnit.test( "useRef(..)", function test(assert){
 	assert.strictEqual( pActual, pExpected, "call without TNG wrapping context" );
 } );
 
+QUnit.test( "useThrottle(..): should throw a TypeError if function is missing", function test(assert){
+	function foo() {
+		const fn = useThrottle(null, 10);
+		fn();
+	}
+
+	foo = TNG(foo);
+	assert.expect(1);
+	assert.throws(() => foo(null, 10));
+});
+
+QUnit.test( "useThrottle(..): should throw a TypeError if timer is missing", function test(assert){
+	function foo() {
+		const fn = useThrottle(() => {});
+		fn();
+	}
+
+	foo = TNG(foo);
+	assert.expect(1);
+	assert.throws(() => foo(null, 10));
+});
+
+
+QUnit.test( "useThrottle(..): should throttle the given function", function test(assert){
+	const done = assert.async();
+
+	const timer = 100;
+	function foo(x) {
+		const fn = useThrottle(tap, timer);
+		fn(x);
+	}
+
+	const tap = sinon.spy();
+	const firstCallArguments = 3;
+	const lastCallArgument = 5;
+
+	foo = TNG(foo);
+	foo( firstCallArguments );
+	foo( 4 );
+
+	setTimeout(() => {
+		foo( lastCallArgument );
+		assert.strictEqual( tap.lastCall.args[0], lastCallArgument);
+		done();
+	}, timer + 1);
+
+	assert.expect(2);
+
+	assert.strictEqual( tap.firstCall.args[0], firstCallArguments);
+});
+
 QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
 		var [x,setX] = useState( -1 );

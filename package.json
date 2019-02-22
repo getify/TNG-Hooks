@@ -19,6 +19,7 @@
 	"devDependencies": {
 		"coveralls": "~3.0.2",
 		"qunit": "~2.9.1",
+		"sinon": "^7.2.4",
 		"terser": "~3.14.1"
 	},
 	"repository": "getify/tng-hooks",

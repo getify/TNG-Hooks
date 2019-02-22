@@ -630,6 +630,34 @@ hit();       // Hit count: 3
 
 It may be more convenient to pass around the reference to this persistent object, and make any updates to its `current` property (or add/remove other properties), than to have to pass around both a state value and its updater function.
 
+### `useThrottle(..)` Hook
+
+The TNG `useThrottle(..)` hook creates an array of [function: () => {}, timer: Number, lastExecution: Number ] and stored persistently in a state slot (via the [`useState(..)` hook](#usestate-hook)).
+`useThrottle(...)` returns a new function wrapper that will invoke the given function only if the last execution occurred before the current time - timer (the given argument)
+
+For example:
+
+```js
+function hit() {
+    var throttledTap = useThrottle(tap, 500);
+    
+    throttledTap();
+}
+
+function tap() {
+	console.log('tap');
+}
+
+hit = TNG(hit);
+
+hit();       // tap
+hit();       // --
+hit();       // --
+setTimeout(() => {
+	hit(); // tap
+}, 1000);
+```
+
 ### Custom Hooks
 
 If any TNG hooks are used in a non-Articulated Function, it behaves essentially like a [React "Custom Hook"](https://reactjs.org/docs/hooks-custom.html). A TNG Custom Hook ***must be called***, directly or indirectly, from an Articulated Function, so that it has a TNG hooks-context available.

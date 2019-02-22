@@ -10,7 +10,7 @@
 
 	return {
 		TNG, useState, useReducer, useEffect,
-		useMemo, useCallback, useRef,
+		useMemo, useCallback, useRef, useThrottle
 	};
 
 
@@ -117,6 +117,37 @@
 		}
 		else {
 			throw new Error("useState() only valid inside an Articulated Function or a Custom Hook.");
+		}
+	}
+
+	function useThrottle(fn, timer) {
+		if(!fn) { throw new TypeError('useThrottle() requires a function argument')}
+		if(!timer) { throw new TypeError('useThrottle() requires a timer argument')}
+
+		var bucket = getCurrentBucket();
+		if (bucket) {
+			if (!(bucket.nextStateSlotIdx in bucket.stateSlots)) {
+				const slot = [
+					fn,
+					timer,
+					0
+				];
+				bucket.stateSlots[bucket.nextStateSlotIdx] = slot;
+			}
+
+			return function throttleFunction(...args) {
+				const slotIdx = bucket.nextStateSlotIdx;
+				const [fn, timer, lastExecution] = bucket.stateSlots[bucket.nextStateSlotIdx++];
+				const currentTime = Date.now();
+
+				if(lastExecution + timer < currentTime) {
+					fn(...args);
+					bucket.stateSlots[slotIdx][2] = currentTime;
+				}
+			}
+		}
+		else {
+			throw new Error("useThrottle() only valid inside an Articulated Function or a Custom Hook.");
 		}
 	}
 
