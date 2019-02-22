@@ -561,6 +561,36 @@ QUnit.test( "useThrottle(..): should throttle the given function", function test
 	assert.strictEqual( tap.firstCall.args[0], firstCallArguments);
 });
 
+QUnit.test( "useThrottle(..): should return a new throttled function if the guards change", function test(assert){
+	let guard = () => 1;
+	function foo() {
+		return useThrottle(() => {}, 10, guard);
+	}
+
+	foo = TNG(foo);
+	const throttle1 = foo( 4 );
+
+	guard = ()=> 2;
+	const throttle2 = foo( 4 );
+
+	assert.expect(1);
+	assert.strictEqual(Object.is(throttle1, throttle2), false);
+});
+
+QUnit.test( "useThrottle(..): should return a the same throttled function if the guards did not change", function test(assert){
+	let guard = () => 1;
+	function foo() {
+		return useThrottle(() => {}, 10, guard);
+	}
+
+	foo = TNG(foo);
+	const throttle1 = foo( 4 );
+	const throttle2 = foo( 4 );
+
+	assert.expect(1);
+	assert.strictEqual(Object.is(throttle1, throttle2), true);
+});
+
 QUnit.test( "use hooks from custom hook", function test(assert){
 	function foo() {
 		var [x,setX] = useState( -1 );

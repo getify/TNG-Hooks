@@ -120,35 +120,38 @@
 		}
 	}
 
-	function useThrottle(fn, timer) {
+	function useThrottle(fn, timer, ...guards) {
 		if(!fn) { throw new TypeError('useThrottle() requires a function argument')}
 		if(!timer) { throw new TypeError('useThrottle() requires a timer argument')}
 
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			const slotIdx = bucket.nextStateSlotIdx;
+			const [slot] = useState({fn, timer, lastExecute: 0});
 
-			if (!(slotIdx in bucket.stateSlots)) {
-				const slot = [
-					fn,
-					timer,
-					0
-				];
-				bucket.stateSlots[bucket.nextStateSlotIdx++] = slot;
-			}
-
-			return function throttleFunction(...args) {
-				const [fn, timer, lastExecution] = bucket.stateSlots[slotIdx];
-				const currentTime = Date.now();
-
-				if(lastExecution + timer < currentTime) {
-					try {
-						fn(...args);
-					} finally {
-						bucket.stateSlots[slotIdx][2] = currentTime;
-					}
+			if (guards.length > 0) {
+				if (guards.length === 1 && Array.isArray(guards[0])) {
+					guards = guards[0];
 				}
 			}
+
+			if (!slot.throttledFn || guardsChanged(slot.guards, guards)) {
+				slot.guards = guards;
+				slot.throttledFn = 	function throttledFunction(...args) {
+					const {fn, timer, lastExecute} = slot;
+					const currentTime = Date.now();
+
+					if(lastExecute + timer < currentTime) {
+						try {
+							fn(...args);
+						} finally {
+							slot.lastExecute = currentTime;
+						}
+					}
+				};
+			}
+
+			return slot.throttledFn;
+
 		}
 		else {
 			throw new Error("useThrottle() only valid inside an Articulated Function or a Custom Hook.");
