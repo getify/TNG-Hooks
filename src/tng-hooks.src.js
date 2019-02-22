@@ -136,13 +136,15 @@
 
 			if (!slot.throttledFn || guardsChanged(slot.guards, guards)) {
 				slot.guards = guards;
+				slot.timer = timer;
+				slot.fn = fn;
 				slot.throttledFn = 	function throttledFunction(...args) {
 					const {fn, timer, lastExecute} = slot;
 					const currentTime = Date.now();
 
 					if(lastExecute + timer < currentTime) {
 						try {
-							fn(...args);
+							fn.apply(this, args);
 						} finally {
 							slot.lastExecute = currentTime;
 						}
