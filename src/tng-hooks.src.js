@@ -126,23 +126,27 @@
 
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			if (!(bucket.nextStateSlotIdx in bucket.stateSlots)) {
+			const slotIdx = bucket.nextStateSlotIdx;
+
+			if (!(slotIdx in bucket.stateSlots)) {
 				const slot = [
 					fn,
 					timer,
 					0
 				];
-				bucket.stateSlots[bucket.nextStateSlotIdx] = slot;
+				bucket.stateSlots[bucket.nextStateSlotIdx++] = slot;
 			}
 
 			return function throttleFunction(...args) {
-				const slotIdx = bucket.nextStateSlotIdx;
-				const [fn, timer, lastExecution] = bucket.stateSlots[bucket.nextStateSlotIdx++];
+				const [fn, timer, lastExecution] = bucket.stateSlots[slotIdx];
 				const currentTime = Date.now();
 
 				if(lastExecution + timer < currentTime) {
-					fn(...args);
-					bucket.stateSlots[slotIdx][2] = currentTime;
+					try {
+						fn(...args);
+					} finally {
+						bucket.stateSlots[slotIdx][2] = currentTime;
+					}
 				}
 			}
 		}
