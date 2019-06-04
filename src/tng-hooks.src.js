@@ -5,8 +5,16 @@
 })(this,function DEF(){
 	"use strict";
 
+	const hooksContextState = Symbol("TNG Hooks Context State");
+	const HOOKS_CONTEXT_EMPTY = 0;
+	const HOOKS_CONTEXT_READY = 1;
+	const HOOKS_CONTEXT_PENDING = 2;
+	const HOOKS_CONTEXT_COMPLETE = 3;
+
+	var hooksContexts = new WeakSet();
+	var appliedHooksContexts = new WeakSet();
 	var buckets = new WeakMap();
-	var tngStack = [];
+	var hooksContextStack = [];
 
 	return {
 		TNG, useState, useReducer, useEffect,
@@ -18,66 +26,83 @@
 
 	function TNG(...fns) {
 		fns = fns.map(function mapper(fn){
-			tngf.reset = reset;
 			return tngf;
 
 
 			// ******************
 
 			function tngf(...args) {
-				tngStack.push(tngf);
-				var bucket = getCurrentBucket();
+				var bucket, nextHooksContext;
+
+				// passed-in hooks-context?
+				if (args[0] && hooksContexts.has(args[0])) {
+					let hooksContext = args.shift();
+					if ([ HOOKS_CONTEXT_EMPTY, HOOKS_CONTEXT_COMPLETE, ].includes(hooksContext[hooksContextState])) {
+						bucket = buckets.get(hooksContext);
+						nextHooksContext = updateContextState(hooksContext,HOOKS_CONTEXT_READY);
+						buckets.set(nextHooksContext,bucket);
+						hooksContextStack.push(nextHooksContext);
+					}
+					else if (hooksContext[hooksContextState] == HOOKS_CONTEXT_READY) {
+						throw new Error("Context currently in use.");
+					}
+					else if (hooksContext[hooksContextState] == HOOKS_CONTEXT_PENDING) {
+						if (appliedHooksContexts.has(hooksContext)) {
+							throw new Error("Context is stale.");
+						}
+						else {
+							throw new Error("Context has pending effects that must be applied.");
+						}
+					}
+				}
+				// starting with a fresh hooks-context
+				else {
+					nextHooksContext = updateContextState(
+						{
+							return: undefined,
+							effects() {
+								if (this[hooksContextState] === HOOKS_CONTEXT_PENDING) {
+									if (!appliedHooksContexts.has(this)) {
+										appliedHooksContexts.add(this);
+										let bucket = buckets.get(this);
+										runEffects(bucket);
+										let nextHooksContext = updateContextState(this,HOOKS_CONTEXT_COMPLETE);
+										buckets.set(nextHooksContext,bucket);
+										return nextHooksContext;
+									}
+									else {
+										throw new Error("Context is stale.");
+									}
+								}
+								else {
+									throw new Error("Context has no pending effects.");
+								}
+							},
+							reset,
+						},
+						HOOKS_CONTEXT_EMPTY
+					);
+					hooksContextStack.push(nextHooksContext);
+					bucket = getCurrentBucket();
+				}
+
+				// ready the bucket for use
 				bucket.nextStateSlotIdx = 0;
 				bucket.nextEffectIdx = 0;
 				bucket.nextMemoizationIdx = 0;
 
 				try {
-					return fn.apply(this,args);
+					nextHooksContext.return = fn.apply(nextHooksContext,args);
+					var newState =
+						(bucket.effects.length > 0) ?
+						HOOKS_CONTEXT_PENDING :
+						HOOKS_CONTEXT_READY;
+					nextHooksContext = updateContextState(nextHooksContext,newState);
+					buckets.set(nextHooksContext,bucket);
+					return nextHooksContext;
 				}
 				finally {
-					// run (cleanups and) effects, if any
-					try {
-						runEffects(bucket);
-					}
-					finally {
-						tngStack.pop();
-					}
-				}
-			}
-
-			function runEffects(bucket) {
-				for (let [idx,[effect,guards]] of bucket.effects.entries()) {
-					try {
-						if (typeof effect == "function") {
-							effect();
-						}
-					}
-					finally {
-						bucket.effects[idx][0] = undefined;
-					}
-				}
-			}
-
-			function reset() {
-				tngStack.push(tngf);
-				var bucket = getCurrentBucket();
-				try {
-					// run all pending cleanups
-					for (let cleanup of bucket.cleanups) {
-						if (typeof cleanup == "function") {
-							cleanup();
-						}
-					}
-				}
-				finally {
-					tngStack.pop();
-					bucket.stateSlots.length = 0;
-					bucket.effects.length = 0;
-					bucket.cleanups.length = 0;
-					bucket.memoizations.length = 0;
-					bucket.nextStateSlotIdx = 0;
-					bucket.nextEffectIdx = 0;
-					bucket.nextMemoizationIdx = 0;
+					hooksContextStack.pop();
 				}
 			}
 		});
@@ -85,12 +110,85 @@
 		return (fns.length < 2) ? fns[0] : fns;
 	}
 
+	function updateContextState(hooksContext,nextState) {
+		hooksContext = {
+			[Symbol.toStringTag]: "TNG-Context",
+			[hooksContextState]: nextState,
+			...hooksContext,
+		};
+		Object.defineProperty(hooksContext,hooksContextState,{
+			writable: false,
+			configurable: false,
+			enumerable: false,
+		});
+		hooksContexts.add(hooksContext);
+		return hooksContext;
+	}
+
+	function runEffects(bucket) {
+		for (let effectIdx = 0; effectIdx < bucket.effects.length; effectIdx++) {
+			try {
+				if (typeof bucket.effects[effectIdx][0] == "function") {
+					bucket.effects[effectIdx][0]();
+				}
+			}
+			finally {
+				// is effect slot still valid (not already reset)?
+				if (effectIdx < bucket.effects.length) {
+					bucket.effects[effectIdx][0] = undefined;
+				}
+			}
+		}
+	}
+
+	function reset() {
+		var hooksContext = this;
+		hooksContextStack.push(hooksContext);
+		var bucket = buckets.get(hooksContext);
+		if (hooksContext[hooksContextState] != HOOKS_CONTEXT_EMPTY) {
+			try {
+				// run all pending cleanups
+				for (let cleanupIdx = 0; cleanupIdx < bucket.cleanups.length; cleanupIdx++) {
+					try {
+						if (typeof bucket.cleanups[cleanupIdx] == "function") {
+							bucket.cleanups[cleanupIdx]();
+						}
+					}
+					finally {
+						// is cleanup slot still valid (not already reset)?
+						if (cleanupIdx < bucket.cleanups.length) {
+							bucket.cleanups[cleanupIdx] = undefined;
+						}
+					}
+				}
+				hooksContext = updateContextState(hooksContext,HOOKS_CONTEXT_EMPTY);
+				buckets.set(hooksContext,bucket);
+				return hooksContext;
+			}
+			finally {
+				hooksContextStack.pop();
+				bucket.stateSlots.length = 0;
+				bucket.effects.length = 0;
+				bucket.cleanups.length = 0;
+				bucket.memoizations.length = 0;
+				bucket.nextStateSlotIdx = 0;
+				bucket.nextEffectIdx = 0;
+				bucket.nextMemoizationIdx = 0;
+			}
+		}
+	}
+
+	function getCurrentHooksContext() {
+		if (hooksContextStack.length > 0) {
+			return hooksContextStack[hooksContextStack.length - 1];
+		}
+	}
+
 	function getCurrentBucket() {
-		if (tngStack.length > 0) {
-			let tngf = tngStack[tngStack.length - 1];
-			let bucket;
-			if (!buckets.has(tngf)) {
-				bucket = {
+		var hooksContext = getCurrentHooksContext();
+		if (hooksContext) {
+			if (!buckets.has(hooksContext)) {
+				let bucket = {
 					nextStateSlotIdx: 0,
 					nextEffectIdx: 0,
 					nextMemoizationIdx: 0,
@@ -99,10 +197,10 @@
 					cleanups: [],
 					memoizations: [],
 				};
-				buckets.set(tngf,bucket);
+				buckets.set(hooksContext,bucket);
 			}
 
-			return buckets.get(tngf);
+			return buckets.get(hooksContext);
 		}
 	}
 
@@ -110,7 +208,7 @@
 		var bucket = getCurrentBucket();
 		if (bucket) {
 			return useReducer(function reducer(prevVal,vOrFn){
-				return typeof vOrFn == "function" ?
+				return (typeof vOrFn == "function") ?
 					vOrFn(prevVal) :
 					vOrFn;
 			},initialVal);
@@ -121,25 +219,38 @@
 	}
 
 	function useReducer(reducerFn,initialVal,...initialReduction) {
+		var hooksContext = getCurrentHooksContext();
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			// need to create this state-slot for this bucket?
+			// need to create this state slot for this bucket?
 			if (!(bucket.nextStateSlotIdx in bucket.stateSlots)) {
-				let slot = [
-					typeof initialVal == "function" ? initialVal() : initialVal,
-					function updateSlot(v){
-						slot[0] = reducerFn(slot[0],v);
-					},
-				];
-				bucket.stateSlots[bucket.nextStateSlotIdx] = slot;
+				// creating state slots allowed in this hooks-context state?
+				if (hooksContext[hooksContextState] == HOOKS_CONTEXT_EMPTY) {
+					let slotVal = (typeof initialVal == "function") ? initialVal() : initialVal;
+					let slot = [
+						slotVal,
+						function updateSlot(v){
+							if (hooksContext[hooksContextState] != HOOKS_CONTEXT_COMPLETE) {
+								slot[0] = reducerFn(slot[0],v);
+							}
+							else {
+								throw new Error("State cannot be updated.");
+							}
+						},
+					];
+					bucket.stateSlots[bucket.nextStateSlotIdx] = slot;
 
-				// run the reducer initially?
-				if (initialReduction.length > 0) {
-					bucket.stateSlots[bucket.nextStateSlotIdx][1](initialReduction[0]);
+					// run the reducer initially?
+					if (initialReduction.length > 0) {
+						bucket.stateSlots[bucket.nextStateSlotIdx][1](initialReduction[0]);
+					}
+				}
+				else {
+					throw new Error("Context is already initialized.");
 				}
 			}
 
-			return [...bucket.stateSlots[bucket.nextStateSlotIdx++]];
+			return [ ...bucket.stateSlots[bucket.nextStateSlotIdx++], ];
 		}
 		else {
 			throw new Error("useReducer() only valid inside an Articulated Function or a Custom Hook.");
@@ -151,26 +262,22 @@
 	function guardsChanged(guards1,guards2) {
 		// either guards list not set?
 		if (guards1 === undefined || guards2 === undefined) {
-			// force assumption of change in guards
 			return true;
 		}
 
 		// guards lists of different length?
 		if (guards1.length !== guards2.length) {
-			// guards changed
 			return true;
 		}
 
 		// check guards lists for differences
 		//    (only shallow value comparisons)
-		for (let [idx,guard] of guards1.entries()) {
+		for (let [idx,guard,] of guards1.entries()) {
 			if (!Object.is(guard,guards2[idx])) {
-				// guards changed
 				return true;
 			}
 		}
 
-		// assume no change in guards
 		return false;
 	}
 
@@ -188,11 +295,18 @@
 			guards = undefined;
 		}
 
+		var hooksContext = getCurrentHooksContext();
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			// need to create this effect-slot for this bucket?
+			// need to create this effect slot for this bucket?
 			if (!(bucket.nextEffectIdx in bucket.effects)) {
-				bucket.effects[bucket.nextEffectIdx] = [];
+				// creating state slots allowed in this hooks-context state?
+				if (hooksContext[hooksContextState] == HOOKS_CONTEXT_EMPTY) {
+					bucket.effects[bucket.nextEffectIdx] = [];
+				}
+				else {
+					throw new Error("Context is already initialized.");
+				}
 			}
 
 			let effectIdx = bucket.nextEffectIdx;
@@ -208,7 +322,10 @@
 							bucket.cleanups[effectIdx]();
 						}
 						finally {
-							bucket.cleanups[effectIdx] = undefined;
+							// is cleanup slot still valid (not already reset)?
+							if (effectIdx < bucket.cleanups.length) {
+								bucket.cleanups[effectIdx] = undefined;
+							}
 						}
 					}
 
@@ -242,14 +359,21 @@
 		// NOTE: different handling than an empty inputGuards list like []
 		else {
 			// the function itself is then used as the only input-guard
-			inputGuards = [fn];
+			inputGuards = [fn,];
 		}
 
+		var hooksContext = getCurrentHooksContext();
 		var bucket = getCurrentBucket();
 		if (bucket) {
-			// need to create this memoization-slot for this bucket?
+			// need to create this memoization slot for this bucket?
 			if (!(bucket.nextMemoizationIdx in bucket.memoizations)) {
-				bucket.memoizations[bucket.nextMemoizationIdx] = [];
+				// creating memoization slots allowed in this hooks-context state?
+				if (hooksContext[hooksContextState] == HOOKS_CONTEXT_EMPTY) {
+					bucket.memoizations[bucket.nextMemoizationIdx] = [];
+				}
+				else {
+					throw new Error("Context is already initialized.");
+				}
 			}
 
 			let memoization = bucket.memoizations[bucket.nextMemoizationIdx];
@@ -289,7 +413,7 @@
 		if (getCurrentBucket()) {
 			// create a new {} object with a `current` property,
 			// save it in a state slot
-			var [ref] = useState({ current: initialValue, });
+			let [ref,] = useState({ current: initialValue, });
 			return ref;
 		}
 		else {

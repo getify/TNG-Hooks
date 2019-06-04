@@ -22,7 +22,7 @@ Unlike a normal pure function, which takes all its inputs and computes output(s)
 
 These will often be used to model the rendering of UI components, as is seen with React components. But Articulated Functions are useful for tracking any kind of state, as well as applying various side effects (asynchrony, Ajax calls, database queries, etc).
 
-Similar to [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html), TNG's Articulated Functions can also invoke other non-Articulated Functions, which allows those function calls to adopt the active hooks-context and use any current hooks, as if they *were* Articulated. These non-articulated-but-hooks-capable functions are [TNG's Custom Hooks](#custom-hooks).
+Similar to [React's "Custom Hooks"](https://reactjs.org/docs/hooks-custom.html), TNG's Articulated Functions can also invoke other non-Articulated Functions, which allows those function calls to adopt the active hooks-context and use any current hooks, as if they *were* Articulated. These non-articulated-but-hooks-capable functions are [TNG's version of Custom Hooks](#custom-hooks).
 
 ### Quick Examples
 
@@ -80,6 +80,9 @@ A much cleaner approach for handling side-effects conditionally is with the [`us
 For example:
 
 ```js
+// generating Articulated Functions (aka, wrapping with TNG hooks-context)
+[renderUsername,onClickUsername] = TNG(renderUsername,onClickUsername);
+
 function renderUsername(username) {
     var [usernameElem,setElem] = useState(null);
 
