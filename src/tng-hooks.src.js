@@ -14,6 +14,8 @@
 	var hooksContexts = new WeakSet();
 	var appliedHooksContexts = new WeakSet();
 	var buckets = new WeakMap();
+	var hooksContextAF = new WeakMap();
+	var AFevents = new WeakMap();
 	var hooksContextStack = [];
 
 	return {
@@ -26,20 +28,34 @@
 
 	function TNG(...fns) {
 		fns = fns.map(function mapper(fn){
-			return tngf;
+			AFevents.set(af,events());
+			af.subscribe = subscribe;
+			af.unsubscribe = unsubscribe;
+			return af;
 
 
 			// ******************
 
-			function tngf(...args) {
+			function af(...args) {
 				var bucket, nextHooksContext;
 
 				// passed-in hooks-context?
 				if (args[0] && hooksContexts.has(args[0])) {
 					let hooksContext = args.shift();
+
+					if (hooksContextAF.has(hooksContext)) {
+						if (hooksContextAF.get(hooksContext) !== af) {
+							throw new Error("Context associated with a different articulated function.");
+						}
+					}
+					else {
+						hooksContextAF.set(hooksContext,af);
+					}
+
 					if ([ HOOKS_CONTEXT_EMPTY, HOOKS_CONTEXT_COMPLETE, ].includes(hooksContext[hooksContextState])) {
 						bucket = buckets.get(hooksContext);
 						nextHooksContext = updateContextState(hooksContext,HOOKS_CONTEXT_READY);
+						hooksContextAF.set(nextHooksContext,af);
 						buckets.set(nextHooksContext,bucket);
 						hooksContextStack.push(nextHooksContext);
 					}
@@ -67,6 +83,7 @@
 										let bucket = buckets.get(this);
 										runEffects(bucket);
 										let nextHooksContext = updateContextState(this,HOOKS_CONTEXT_COMPLETE);
+										hooksContextAF.set(nextHooksContext,af);
 										buckets.set(nextHooksContext,bucket);
 										return nextHooksContext;
 									}
@@ -82,6 +99,7 @@
 						},
 						HOOKS_CONTEXT_EMPTY
 					);
+					hooksContextAF.set(nextHooksContext,af);
 					hooksContextStack.push(nextHooksContext);
 					bucket = getCurrentBucket();
 				}
@@ -93,7 +111,7 @@
 
 				try {
 					nextHooksContext.return = fn.apply(nextHooksContext,args);
-					var newState =
+					let newState =
 						(bucket.effects.length > 0) ?
 						HOOKS_CONTEXT_PENDING :
 						HOOKS_CONTEXT_READY;
@@ -143,15 +161,17 @@
 
 	function reset() {
 		var hooksContext = this;
-		hooksContextStack.push(hooksContext);
+		var af = hooksContextAF.get(hooksContext);
 		var bucket = buckets.get(hooksContext);
+		hooksContextStack.push(hooksContext);
 		if (hooksContext[hooksContextState] != HOOKS_CONTEXT_EMPTY) {
 			try {
 				// run all pending cleanups
 				for (let cleanupIdx = 0; cleanupIdx < bucket.cleanups.length; cleanupIdx++) {
+					let cleanupFn = bucket.cleanups[cleanupIdx];
 					try {
-						if (typeof bucket.cleanups[cleanupIdx] == "function") {
-							bucket.cleanups[cleanupIdx]();
+						if (typeof cleanupFn == "function") {
+							cleanupFn();
 						}
 					}
 					finally {
@@ -159,9 +179,11 @@
 						if (cleanupIdx < bucket.cleanups.length) {
 							bucket.cleanups[cleanupIdx] = undefined;
 						}
+						dispatchEvent(hooksContext,"cleanup",cleanupIdx,cleanupFn);
 					}
 				}
 				hooksContext = updateContextState(hooksContext,HOOKS_CONTEXT_EMPTY);
+				hooksContextAF.set(hooksContext,af);
 				buckets.set(hooksContext,bucket);
 				return hooksContext;
 			}
@@ -176,6 +198,48 @@
 				bucket.nextMemoizationIdx = 0;
 			}
 		}
+	}
+
+	function events() {
+		return {
+			state: new Set(),
+			effect: new Set(),
+			cleanup: new Set(),
+			dispatch(type,...args) {
+				for (let listener of this[type]) {
+					try {
+						listener(...args);
+					}
+					catch (err) {}
+				}
+			},
+		};
+	}
+
+	function dispatchEvent(hooksContext,type,...args) {
+		var af = hooksContextAF.get(hooksContext);
+		var evts = AFevents.get(af);
+		evts.dispatch(type,af,hooksContext,...args);
+	}
+
+	function subscribe(listeners) {
+		var evts = AFevents.get(this);
+		for (let type of ["state","effect","cleanup",]) {
+			if (type in listeners) {
+				evts[type].add(listeners[type]);
+			}
+		}
+		return this;
+	}
+
+	function unsubscribe(listeners) {
+		var evts = AFevents.get(this);
+		for (let type of ["state","effect","cleanup",]) {
+			if (type in listeners) {
+				evts[type].delete(listeners[type]);
+			}
+		}
+		return this;
 	}
 
 	function getCurrentHooksContext() {
@@ -226,12 +290,19 @@
 			if (!(bucket.nextStateSlotIdx in bucket.stateSlots)) {
 				// creating state slots allowed in this hooks-context state?
 				if (hooksContext[hooksContextState] == HOOKS_CONTEXT_EMPTY) {
+					let slotIdx = bucket.nextStateSlotIdx;
 					let slotVal = (typeof initialVal == "function") ? initialVal() : initialVal;
 					let slot = [
 						slotVal,
 						function updateSlot(v){
 							if (hooksContext[hooksContextState] != HOOKS_CONTEXT_COMPLETE) {
-								slot[0] = reducerFn(slot[0],v);
+								let oldSlotVal = slot[0];
+								try {
+									slot[0] = reducerFn(slot[0],v);
+								}
+								finally {
+									dispatchEvent(hooksContext,"state",slotIdx,oldSlotVal,slot[0]);
+								}
 							}
 							else {
 								throw new Error("State cannot be updated.");
@@ -317,24 +388,31 @@
 				// define effect handler
 				effect[0] = function effect(){
 					// run a previous cleanup first?
-					if (typeof bucket.cleanups[effectIdx] == "function") {
+					var cleanupFn = bucket.cleanups[effectIdx];
+					if (typeof cleanupFn == "function") {
 						try {
-							bucket.cleanups[effectIdx]();
+							cleanupFn();
 						}
 						finally {
 							// is cleanup slot still valid (not already reset)?
 							if (effectIdx < bucket.cleanups.length) {
 								bucket.cleanups[effectIdx] = undefined;
 							}
+							dispatchEvent(hooksContext,"cleanup",effectIdx,cleanupFn);
 						}
 					}
 
-					// invoke the effect itself
-					var ret = fn();
+					try {
+						// invoke the effect itself
+						let ret = fn();
 
-					// cleanup function returned, to be saved?
-					if (typeof ret == "function") {
-						bucket.cleanups[effectIdx] = ret;
+						// cleanup function returned, to be saved?
+						if (typeof ret == "function") {
+							bucket.cleanups[effectIdx] = ret;
+						}
+					}
+					finally {
+						dispatchEvent(hooksContext,"effect",effectIdx,fn);
 					}
 				};
 				effect[1] = guards;
