@@ -17,6 +17,8 @@
 	var hooksContextAF = new WeakMap();
 	var AFevents = new WeakMap();
 	var hooksContextStack = [];
+	var schedulingQueue = Queue();
+	var tick;
 
 	return {
 		TNG, useState, useReducer, useEffect,
@@ -179,7 +181,7 @@
 						if (cleanupIdx < bucket.cleanups.length) {
 							bucket.cleanups[cleanupIdx] = undefined;
 						}
-						dispatchEvent(hooksContext,"cleanup",cleanupIdx,cleanupFn);
+						scheduleEvent(hooksContext,"cleanup",cleanupIdx,cleanupFn);
 					}
 				}
 				hooksContext = updateContextState(hooksContext,HOOKS_CONTEXT_EMPTY);
@@ -200,33 +202,11 @@
 		}
 	}
 
-	function events() {
-		return {
-			state: new Set(),
-			effect: new Set(),
-			cleanup: new Set(),
-			dispatch(type,...args) {
-				for (let listener of this[type]) {
-					try {
-						listener(...args);
-					}
-					catch (err) {}
-				}
-			},
-		};
-	}
-
-	function dispatchEvent(hooksContext,type,...args) {
-		var af = hooksContextAF.get(hooksContext);
-		var evts = AFevents.get(af);
-		evts.dispatch(type,af,hooksContext,...args);
-	}
-
 	function subscribe(listeners) {
 		var evts = AFevents.get(this);
 		for (let type of ["state","effect","cleanup",]) {
 			if (type in listeners) {
-				evts[type].add(listeners[type]);
+				evts.on(type,listeners[type]);
 			}
 		}
 		return this;
@@ -236,7 +216,7 @@
 		var evts = AFevents.get(this);
 		for (let type of ["state","effect","cleanup",]) {
 			if (type in listeners) {
-				evts[type].delete(listeners[type]);
+				evts.off(type,listeners[type]);
 			}
 		}
 		return this;
@@ -301,7 +281,7 @@
 									slot[0] = reducerFn(slot[0],v);
 								}
 								finally {
-									dispatchEvent(hooksContext,"state",slotIdx,oldSlotVal,slot[0]);
+									scheduleEvent(hooksContext,"state",slotIdx,oldSlotVal,slot[0]);
 								}
 							}
 							else {
@@ -398,7 +378,7 @@
 							if (effectIdx < bucket.cleanups.length) {
 								bucket.cleanups[effectIdx] = undefined;
 							}
-							dispatchEvent(hooksContext,"cleanup",effectIdx,cleanupFn);
+							scheduleEvent(hooksContext,"cleanup",effectIdx,cleanupFn);
 						}
 					}
 
@@ -412,7 +392,7 @@
 						}
 					}
 					finally {
-						dispatchEvent(hooksContext,"effect",effectIdx,fn);
+						scheduleEvent(hooksContext,"effect",effectIdx,fn);
 					}
 				};
 				effect[1] = guards;
@@ -498,4 +478,81 @@
 			throw new Error("useRef() only valid inside an Articulated Function or a Custom Hook.");
 		}
 	}
+
+	function scheduleEvent(hooksContext,type,...args) {
+		var af = hooksContextAF.get(hooksContext);
+		var evts = AFevents.get(af);
+		schedule(evts.emit,[type,af,hooksContext,...args,]);
+	}
+
+	function events() {
+		var listeners = {
+			state: new Set(),
+			effect: new Set(),
+			cleanup: new Set(),
+		};
+		return {
+			on(type,listener) {
+				listeners[type].add(listener);
+			},
+			off(type,listener) {
+				listeners[type].delete(listener);
+			},
+			emit(type,...args) {
+				for (let listener of listeners[type]) {
+					try {
+						listener(...args);
+					}
+					catch (err) {}
+				}
+			},
+		};
+	}
+
+	// Note: using a queue instead of array for efficiency
+	function Queue() {
+		var first, last, item;
+
+		return {
+			add(fn,args) {
+				item = new Item(fn,args);
+				if (last) {
+					last.next = item;
+				}
+				else {
+					first = item;
+				}
+				last = item;
+				item = undefined;
+			},
+			drain() {
+				var f = first;
+				first = last = null;
+
+				while (f) {
+					f.fn(...f.args);
+					f = f.next;
+				}
+			},
+		};
+	}
+
+	function Item(fn,args) {
+		this.fn = fn;
+		this.args = args;
+		this.next = undefined;
+	}
+
+	function schedule(fn,args) {
+		schedulingQueue.add(fn,args);
+		if (!tick) {
+			tick = Promise.resolve().then(onTick);
+		}
+	}
+
+	function onTick() {
+		schedulingQueue.drain();
+		tick = null;
+	}
+
 });
