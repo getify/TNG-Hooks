@@ -20,6 +20,8 @@
 	var schedulingQueue = Queue();
 	var tick;
 
+	TNG.auto = auto;
+
 	return {
 		TNG, useState, useReducer, useEffect,
 		useMemo, useCallback, useRef,
@@ -128,6 +130,33 @@
 		});
 
 		return (fns.length < 2) ? fns[0] : fns;
+	}
+
+	function auto(fn,listeners) {
+		var hooksContext;
+		fn = TNG(fn);
+		if (listeners) {
+			fn.subscribe(listeners);
+		}
+		autoContext.reset = function reset(){
+			if (hooksContext) {
+				hooksContext = hooksContext.reset();
+			}
+			if (listeners) {
+				fn.unsubscribe(listeners);
+			}
+		};
+		return autoContext;
+
+
+		// ******************
+
+		function autoContext(...args){
+			if (hooksContext) {
+				args.unshift(hooksContext);
+			}
+			hooksContext = fn(...args).effects();
+		}
 	}
 
 	function updateContextState(hooksContext,nextState) {
