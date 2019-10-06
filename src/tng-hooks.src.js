@@ -163,10 +163,11 @@
 	function auto(...fns) {
 		fns = fns.map(function mapper(fn){
 			var hooksContext;
+
 			fn = TNG(fn);
 			autoContext.reset = function reset(){
 				if (hooksContext) {
-					hooksContext = hooksContext.reset();
+					hooksContext.reset();
 				}
 			};
 			autoContext.subscribe = subscribe.bind(fn);
@@ -178,7 +179,7 @@
 
 			function autoContext(...args){
 				if (hooksContext) {
-					args.unshift(hooksContext);
+					args = [ hooksContext, ...args, ];
 				}
 				hooksContext = fn(...args).effects();
 			}
