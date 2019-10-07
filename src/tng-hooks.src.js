@@ -9,7 +9,6 @@
 	const HOOKS_CONTEXT_ACTIVE = 1;
 	const HOOKS_CONTEXT_PENDING = 2;
 	const HOOKS_CONTEXT_READY = 3;
-	const HOOKS_CONTEXT_LOCKED = 4;
 
 	var recognizedHooksContexts = new WeakSet();
 	var hooksContextState = new WeakMap();
@@ -63,7 +62,7 @@
 						hooksContextState.set(hooksContext,HOOKS_CONTEXT_ACTIVE);
 						hooksContextStack.push(hooksContext);
 					}
-					else if ([ HOOKS_CONTEXT_ACTIVE, HOOKS_CONTEXT_LOCKED, ].includes(currentHooksContextState)) {
+					else if (currentHooksContextState == HOOKS_CONTEXT_ACTIVE) {
 						throw new Error("Context currently in use");
 					}
 					else if (currentHooksContextState == HOOKS_CONTEXT_PENDING) {
@@ -107,42 +106,22 @@
 			},
 			return: undefined,
 			effects() {
-				if (hooksContext.state != HOOKS_CONTEXT_LOCKED) {
-					if (hooksContextState.get(hooksContext) === HOOKS_CONTEXT_PENDING) {
-						hooksContextState.set(hooksContext,HOOKS_CONTEXT_LOCKED);
-						let bucket = buckets.get(hooksContext);
-						runEffects(bucket);
-						hooksContextState.set(hooksContext,HOOKS_CONTEXT_READY);
-						return hooksContext;
-					}
-					else {
-						throw new Error("Context has no pending effects");
-					}
+				if (hooksContextState.get(hooksContext) === HOOKS_CONTEXT_PENDING) {
+					scheduleEffects(buckets.get(hooksContext));
+					hooksContextState.set(hooksContext,HOOKS_CONTEXT_READY);
+
+					return hooksContext;
+				}
+				else {
+					throw new Error("Context has no pending effects");
 				}
 			},
 			reset() {
-				if (![ HOOKS_CONTEXT_OPEN, HOOKS_CONTEXT_LOCKED, ].includes(hooksContext.state)) {
-					hooksContextState.set(hooksContext,HOOKS_CONTEXT_LOCKED);
+				if (hooksContext.state == HOOKS_CONTEXT_OPEN) {
 					let bucket = buckets.get(hooksContext);
-					hooksContextStack.push(hooksContext);
-
-					// run all pending cleanups
-					for (let cleanupIdx = 0; cleanupIdx < bucket.cleanups.length; cleanupIdx++) {
-						let cleanupFn = bucket.cleanups[cleanupIdx];
-						if (isFunction(cleanupFn)) {
-							cleanupFn();
-						}
-
-						// is cleanup entry still valid (not already reset)?
-						if (bucket.cleanups[cleanupIdx]) {
-							bucket.cleanups[cleanupIdx] = undefined;
-						}
-
-						scheduleEventNotification(hooksContext,"cleanup",cleanupIdx,cleanupFn);
-					}
+					scheduleCleanups(hooksContext,bucket);
 
 					// reset all context/bucket state
-					hooksContextStack.pop();
 					hooksContextState.set(hooksContext,HOOKS_CONTEXT_OPEN);
 					hooksContext.return = undefined;
 					bucket.stateSlots.length = 0;
@@ -231,20 +210,37 @@
 		}
 	}
 
-	function runEffects(bucket) {
-		for (let effectIdx = 0; effectIdx < bucket.effects.length; effectIdx++) {
-			let runEffectFn = bucket.effects[effectIdx][1];
+	function scheduleEffects(bucket) {
+		var runEffectFns = bucket.effects.map(function extractFn(effectEntry){
+			var runEffectFn = effectEntry[1];
+			effectEntry[1] = undefined;
+			return runEffectFn;
+		});
 
-			if (isFunction(runEffectFn)) {
-				runEffectFn();
+		// defer effects
+		Promise.resolve().then(function t(){
+			for (let runEffectFn of runEffectFns) {
+				if (isFunction(runEffectFn)) {
+					runEffectFn();
+				}
 			}
+			runEffectFns.length = 0;
+		});
+	}
 
-			// is effect entry still valid (not already reset)?
-			if (bucket.effects[effectIdx]) {
-				// unset the run-effect function from the entry
-				bucket.effects[effectIdx][1] = undefined;
+	function scheduleCleanups(hooksContext,bucket) {
+		var cleanups = [ ...bucket.cleanups, ];
+		bucket.cleanups.length = 0;
+
+		// defer cleanups
+		Promise.resolve().then(function t(){
+			for (let [cleanupIdx,cleanupFn,] of cleanups) {
+				if (isFunction(cleanupFn)) {
+					cleanupFn();
+					scheduleEventNotification(hooksContext,"cleanup",cleanupIdx,cleanupFn);
+				}
 			}
-		}
+		});
 	}
 
 	function subscribe(listeners) {
