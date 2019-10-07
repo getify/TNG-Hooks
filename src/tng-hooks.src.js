@@ -9,8 +9,9 @@
 	const HOOKS_CONTEXT_ACTIVE = 1;
 	const HOOKS_CONTEXT_PENDING = 2;
 	const HOOKS_CONTEXT_READY = 3;
+	const HOOKS_CONTEXT_LOCKED = 4;
 
-	var hooksContexts = new WeakSet();
+	var recognizedHooksContexts = new WeakSet();
 	var hooksContextState = new WeakMap();
 	var buckets = new WeakMap();
 	var hooksContextAF = new WeakMap();
@@ -43,12 +44,12 @@
 				var bucket, hooksContext;
 
 				// passed-in hooks-context?
-				if (args[0] && hooksContexts.has(args[0])) {
+				if (args[0] && recognizedHooksContexts.has(args[0])) {
 					hooksContext = args.shift();
 
 					if (hooksContextAF.has(hooksContext)) {
 						if (hooksContextAF.get(hooksContext) !== af) {
-							throw new Error("Context belongs to a different articulated function.");
+							throw new Error("Context belongs to a different articulated function");
 						}
 					}
 					else {
@@ -62,18 +63,18 @@
 						hooksContextState.set(hooksContext,HOOKS_CONTEXT_ACTIVE);
 						hooksContextStack.push(hooksContext);
 					}
-					else if (currentHooksContextState == HOOKS_CONTEXT_ACTIVE) {
-						throw new Error("Context currently in use.");
+					else if ([ HOOKS_CONTEXT_ACTIVE, HOOKS_CONTEXT_LOCKED, ].includes(currentHooksContextState)) {
+						throw new Error("Context currently in use");
 					}
 					else if (currentHooksContextState == HOOKS_CONTEXT_PENDING) {
-						throw new Error("Context has pending effects that must be applied.");
+						throw new Error("Context has pending effects that must first be applied");
 					}
 				}
-				// starting with a fresh hooks-context
+				// need a fresh hooks-context
 				else {
 					hooksContext = newHooksContext(af);
 					hooksContextStack.push(hooksContext);
-					bucket = getCurrentBucket();
+					bucket = getCurrentBucket(hooksContext);
 				}
 
 				// ready the bucket for use
@@ -81,18 +82,17 @@
 				bucket.nextEffectIdx = 0;
 				bucket.nextMemoizationIdx = 0;
 
-				try {
-					let retVal = fn.apply(hooksContext,args);
-					let newState =
-						(bucket.effects.length > 0) ?
-						HOOKS_CONTEXT_PENDING :
-						HOOKS_CONTEXT_ACTIVE;
-					hooksContextState.set(hooksContext,newState);
-					return hooksContext;
-				}
-				finally {
-					hooksContextStack.pop();
-				}
+				// invoke the original function
+				hooksContext.return = undefined;
+				hooksContext.return = fn.apply(hooksContext,args);
+				hooksContextStack.pop();
+				var newState =
+					(bucket.effects.length > 0) ?
+					HOOKS_CONTEXT_PENDING :
+					HOOKS_CONTEXT_ACTIVE;
+				hooksContextState.set(hooksContext,newState);
+
+				return hooksContext;
 			}
 		});
 
@@ -107,99 +107,142 @@
 			},
 			return: undefined,
 			effects() {
-				if (hooksContextState.get(hooksContext) === HOOKS_CONTEXT_PENDING) {
-					let bucket = buckets.get(hooksContext);
-					runEffects(bucket);
-					hooksContextState.set(hooksContext,HOOKS_CONTEXT_READY);
-					return hooksContext;
-				}
-				else {
-					throw new Error("Context has no pending effects.");
+				if (hooksContext.state != HOOKS_CONTEXT_LOCKED) {
+					if (hooksContextState.get(hooksContext) === HOOKS_CONTEXT_PENDING) {
+						hooksContextState.set(hooksContext,HOOKS_CONTEXT_LOCKED);
+						let bucket = buckets.get(hooksContext);
+						runEffects(bucket);
+						hooksContextState.set(hooksContext,HOOKS_CONTEXT_READY);
+						return hooksContext;
+					}
+					else {
+						throw new Error("Context has no pending effects");
+					}
 				}
 			},
 			reset() {
-				if (hooksContextState.get(hooksContext) != HOOKS_CONTEXT_OPEN) {
+				if (![ HOOKS_CONTEXT_OPEN, HOOKS_CONTEXT_LOCKED, ].includes(hooksContext.state)) {
+					hooksContextState.set(hooksContext,HOOKS_CONTEXT_LOCKED);
 					let bucket = buckets.get(hooksContext);
 					hooksContextStack.push(hooksContext);
-					try {
-						// run all pending cleanups
-						for (let cleanupIdx = 0; cleanupIdx < bucket.cleanups.length; cleanupIdx++) {
-							let cleanupFn = bucket.cleanups[cleanupIdx];
-							try {
-								if (typeof cleanupFn == "function") {
-									cleanupFn();
-								}
-							}
-							finally {
-								// is cleanup slot still valid (not already reset)?
-								if (cleanupIdx < bucket.cleanups.length) {
-									bucket.cleanups[cleanupIdx] = undefined;
-								}
-								scheduleEvent(hooksContext,"cleanup",cleanupIdx,cleanupFn);
-							}
+
+					// run all pending cleanups
+					for (let cleanupIdx = 0; cleanupIdx < bucket.cleanups.length; cleanupIdx++) {
+						let cleanupFn = bucket.cleanups[cleanupIdx];
+						if (isFunction(cleanupFn)) {
+							cleanupFn();
 						}
-						hooksContextState.set(hooksContext,HOOKS_CONTEXT_OPEN);
-						return hooksContext;
+
+						// is cleanup entry still valid (not already reset)?
+						if (bucket.cleanups[cleanupIdx]) {
+							bucket.cleanups[cleanupIdx] = undefined;
+						}
+
+						scheduleEventNotification(hooksContext,"cleanup",cleanupIdx,cleanupFn);
 					}
-					finally {
-						hooksContextStack.pop();
-						bucket.stateSlots.length = 0;
-						bucket.effects.length = 0;
-						bucket.cleanups.length = 0;
-						bucket.memoizations.length = 0;
-						bucket.nextStateSlotIdx = 0;
-						bucket.nextEffectIdx = 0;
-						bucket.nextMemoizationIdx = 0;
-					}
+
+					// reset all context/bucket state
+					hooksContextStack.pop();
+					hooksContextState.set(hooksContext,HOOKS_CONTEXT_OPEN);
+					hooksContext.return = undefined;
+					bucket.stateSlots.length = 0;
+					bucket.effects.length = 0;
+					bucket.cleanups.length = 0;
+					bucket.memoizations.length = 0;
+					bucket.nextStateSlotIdx = 0;
+					bucket.nextEffectIdx = 0;
+					bucket.nextMemoizationIdx = 0;
+
+					return hooksContext;
+				}
+			},
+			clone() {
+				if (hooksContext.state == HOOKS_CONTEXT_READY) {
+					let currentBucket = buckets.get(hooksContext);
+					let newContext = newHooksContext(af);
+
+					// copy context state and bucket
+					hooksContextState.set(newContext,hooksContext.state);
+					newContext.return = hooksContext.return;
+					let newBucket = {
+						nextStateSlotIdx: currentBucket.nextStateSlotIdx,
+						nextEffectIdx: currentBucket.nextEffectIdx,
+						nextMemoizationIdx: currentBucket.nextMemoizationIdx,
+						stateSlots: currentBucket.stateSlots.map(function cloneStateSlot(slot,slotIdx){
+							return initStateSlot(slot.slice(0,2),slotIdx,newContext);
+						}),
+						effects: currentBucket.effects.map(function cloneEffect(effectEntry,effectIdx){
+							var guards = effectEntry[0] ? [ ...effectEntry[0], ] : undefined;
+							return [ guards, ];
+						}),
+						cleanups: [],
+						memoizations: currentBucket.memoizations.map(function cloneMemoization(memoization){
+							return [ memoization[0], [ ...memoization[1], ], ];
+						}),
+					};
+					buckets.set(newContext,newBucket);
+
+					return newContext;
+				}
+				else {
+					throw new Error("Context not ready to be cloned");
 				}
 			},
 		};
-		hooksContexts.add(hooksContext);
+
+		recognizedHooksContexts.add(hooksContext);
 		hooksContextState.set(hooksContext,HOOKS_CONTEXT_OPEN);
 		hooksContextAF.set(hooksContext,af);
+
 		return hooksContext;
 	}
 
 	function auto(...fns) {
 		fns = fns.map(function mapper(fn){
-			var hooksContext;
-
-			fn = TNG(fn);
-			autoContext.reset = function reset(){
-				if (hooksContext) {
-					hooksContext.reset();
-				}
-			};
-			autoContext.subscribe = subscribe.bind(fn);
-			autoContext.unsubscribe = unsubscribe.bind(fn);
-			return autoContext;
-
-
-			// ******************
-
-			function autoContext(...args){
-				if (hooksContext) {
-					args = [ hooksContext, ...args, ];
-				}
-				hooksContext = fn(...args).effects();
-			}
+			return initAutoContext(TNG(fn));
 		});
 
 		return (fns.length < 2) ? fns[0] : fns;
 	}
 
+	function initAutoContext(fn,hooksContext) {
+		autoContext.reset = function reset(){
+			if (hooksContext) {
+				hooksContext.reset();
+			}
+		};
+		autoContext.clone = function clone(){
+			var ctx = hooksContext ? hooksContext.clone() : undefined;
+			return initAutoContext(fn,ctx);
+		};
+		autoContext.subscribe = subscribe.bind(fn);
+		autoContext.unsubscribe = unsubscribe.bind(fn);
+		return autoContext;
+
+
+		// ******************
+
+		function autoContext(...args){
+			if (hooksContext) {
+				args = [ hooksContext, ...args, ];
+			}
+			hooksContext = fn(...args).effects();
+			return hooksContext.return;
+		}
+	}
+
 	function runEffects(bucket) {
 		for (let effectIdx = 0; effectIdx < bucket.effects.length; effectIdx++) {
-			try {
-				if (typeof bucket.effects[effectIdx][0] == "function") {
-					bucket.effects[effectIdx][0]();
-				}
+			let runEffectFn = bucket.effects[effectIdx][1];
+
+			if (isFunction(runEffectFn)) {
+				runEffectFn();
 			}
-			finally {
-				// is effect slot still valid (not already reset)?
-				if (effectIdx < bucket.effects.length) {
-					bucket.effects[effectIdx][0] = undefined;
-				}
+
+			// is effect entry still valid (not already reset)?
+			if (bucket.effects[effectIdx]) {
+				// unset the run-effect function from the entry
+				bucket.effects[effectIdx][1] = undefined;
 			}
 		}
 	}
@@ -230,8 +273,7 @@
 		}
 	}
 
-	function getCurrentBucket() {
-		var hooksContext = getCurrentHooksContext();
+	function getCurrentBucket(hooksContext = getCurrentHooksContext()) {
 		if (hooksContext) {
 			if (!buckets.has(hooksContext)) {
 				let bucket = {
@@ -253,56 +295,64 @@
 	function useState(initialVal) {
 		var bucket = getCurrentBucket();
 		if (bucket) {
+			if (
+				// state slot not yet initialized?
+				!(bucket.nextStateSlotIdx in bucket.stateSlots) &&
+				// lazily calculate initial value?
+				isFunction(initialVal)
+			) {
+				initialVal = initialVal();
+			}
+
 			return useReducer(function reducer(prevVal,vOrFn){
-				return (typeof vOrFn == "function") ?
-					vOrFn(prevVal) :
-					vOrFn;
+				return isFunction(vOrFn) ? vOrFn(prevVal) : vOrFn;
 			},initialVal);
 		}
 		else {
-			throw new Error("useState() only valid inside an Articulated Function or a Custom Hook.");
+			throw new Error("useState() only valid inside an Articulated Function or a Custom Hook");
 		}
 	}
 
-	function useReducer(reducerFn,initialVal,...initialReduction) {
+	function useReducer(reducerFn,initialVal,initialReductionFn) {
 		var hooksContext = getCurrentHooksContext();
-		var bucket = getCurrentBucket();
+		var bucket = getCurrentBucket(hooksContext);
 		if (bucket) {
+			let slotIdx = bucket.nextStateSlotIdx++;
+			let slot = bucket.stateSlots[slotIdx];
+
 			// need to create this state slot for this bucket?
-			if (!(bucket.nextStateSlotIdx in bucket.stateSlots)) {
+			if (!slot) {
 				// creating state slots allowed in this hooks-context state?
 				if (hooksContextState.get(hooksContext) == HOOKS_CONTEXT_OPEN) {
-					let slotIdx = bucket.nextStateSlotIdx;
-					let slotVal = (typeof initialVal == "function") ? initialVal() : initialVal;
-					let slot = [
-						slotVal,
-						function updateSlot(v){
-							var oldSlotVal = slot[0];
-							try {
-								slot[0] = reducerFn(slot[0],v);
-							}
-							finally {
-								scheduleEvent(hooksContext,"state",slotIdx,oldSlotVal,slot[0]);
-							}
-						},
-					];
-					bucket.stateSlots[bucket.nextStateSlotIdx] = slot;
+					// was an `initialReductionFn(..)` provided to lazily
+					// calculate the initial slot value?
+					let slotVal = isFunction(initialReductionFn) ?
+						initialReductionFn(initialVal) :
+						initialVal;
 
-					// run the reducer initially?
-					if (initialReduction.length > 0) {
-						bucket.stateSlots[bucket.nextStateSlotIdx][1](initialReduction[0]);
-					}
+					slot = bucket.stateSlots[slotIdx] = [slotVal,reducerFn,];
+					initStateSlot(slot,slotIdx,hooksContext);
 				}
 				else {
-					throw new Error("Context is already initialized.");
+					throw new Error("Context shape cannot be modified");
 				}
 			}
 
-			return [ ...bucket.stateSlots[bucket.nextStateSlotIdx++], ];
+			// NOTE: [ slotValue, updateSlot() ]
+			return [ slot[0], slot[2], ];
 		}
 		else {
-			throw new Error("useReducer() only valid inside an Articulated Function or a Custom Hook.");
+			throw new Error("useReducer() only valid inside an Articulated Function or a Custom Hook");
 		}
+	}
+
+	function initStateSlot(slot,slotIdx,hooksContext) {
+		slot[2] = function updateSlot(v){
+			var prevSlotVal = slot[0];
+			slot[0] = slot[1](prevSlotVal,v);
+			scheduleEventNotification(hooksContext,"state",slotIdx,prevSlotVal,slot[0]);
+		};
+		return slot;
 	}
 
 	// NOTE: both `guards1` and `guards2` are either
@@ -329,7 +379,7 @@
 		return false;
 	}
 
-	function useEffect(fn,...guards) {
+	function useEffect(effectFn,...guards) {
 		// passed in any guards?
 		if (guards.length > 0) {
 			// only passed a single guards list?
@@ -344,61 +394,55 @@
 		}
 
 		var hooksContext = getCurrentHooksContext();
-		var bucket = getCurrentBucket();
+		var bucket = getCurrentBucket(hooksContext);
 		if (bucket) {
-			// need to create this effect slot for this bucket?
-			if (!(bucket.nextEffectIdx in bucket.effects)) {
-				// creating state slots allowed in this hooks-context state?
+			let effectIdx = bucket.nextEffectIdx++;
+			let effectEntry = bucket.effects[effectIdx];
+
+			// need to create this effect entry for this bucket?
+			if (!effectEntry) {
+				// creating effect entries allowed in this hooks-context state?
 				if (hooksContextState.get(hooksContext) == HOOKS_CONTEXT_OPEN) {
-					bucket.effects[bucket.nextEffectIdx] = [];
+					effectEntry = bucket.effects[effectIdx] = [];
 				}
 				else {
-					throw new Error("Context is already initialized.");
+					throw new Error("Context shape cannot be modified");
 				}
 			}
 
-			let effectIdx = bucket.nextEffectIdx;
-			let effect = bucket.effects[effectIdx];
-
 			// check guards?
-			if (guardsChanged(effect[1],guards)) {
-				// define effect handler
-				effect[0] = function effect(){
-					// run a previous cleanup first?
-					var cleanupFn = bucket.cleanups[effectIdx];
-					if (typeof cleanupFn == "function") {
-						try {
+			if (guardsChanged(effectEntry[1],guards)) {
+				Object.assign(effectEntry,[
+					guards,
+					function runEffect(){
+						// run a previous cleanup first?
+						var cleanupFn = bucket.cleanups[effectIdx];
+						if (isFunction(cleanupFn)) {
 							cleanupFn();
-						}
-						finally {
-							// is cleanup slot still valid (not already reset)?
-							if (effectIdx < bucket.cleanups.length) {
+
+							// is cleanup entry still valid (not already reset)?
+							if (bucket.cleanups[effectIdx]) {
 								bucket.cleanups[effectIdx] = undefined;
 							}
-							scheduleEvent(hooksContext,"cleanup",effectIdx,cleanupFn);
-						}
-					}
 
-					try {
+							scheduleEventNotification(hooksContext,"cleanup",effectIdx,cleanupFn);
+						}
+
 						// invoke the effect itself
-						let ret = fn();
+						var ret = effectFn();
 
 						// cleanup function returned, to be saved?
-						if (typeof ret == "function") {
+						if (isFunction(ret)) {
 							bucket.cleanups[effectIdx] = ret;
 						}
-					}
-					finally {
-						scheduleEvent(hooksContext,"effect",effectIdx,fn);
-					}
-				};
-				effect[1] = guards;
-			}
 
-			bucket.nextEffectIdx++;
+						scheduleEventNotification(hooksContext,"effect",effectIdx,effectFn);
+					}
+				]);
+			}
 		}
 		else {
-			throw new Error("useEffect() only valid inside an Articulated Function or a Custom Hook.");
+			throw new Error("useEffect() only valid inside an Articulated Function or a Custom Hook");
 		}
 	}
 
@@ -418,7 +462,7 @@
 		}
 
 		var hooksContext = getCurrentHooksContext();
-		var bucket = getCurrentBucket();
+		var bucket = getCurrentBucket(hooksContext);
 		if (bucket) {
 			// need to create this memoization slot for this bucket?
 			if (!(bucket.nextMemoizationIdx in bucket.memoizations)) {
@@ -427,7 +471,7 @@
 					bucket.memoizations[bucket.nextMemoizationIdx] = [];
 				}
 				else {
-					throw new Error("Context is already initialized.");
+					throw new Error("Context shape cannot be modified");
 				}
 			}
 
@@ -435,14 +479,9 @@
 
 			// check input-guards?
 			if (guardsChanged(memoization[1],inputGuards)) {
-				try {
-					// invoke the to-be-memoized function
-					memoization[0] = fn();
-				}
-				finally {
-					// save the new input-guards
-					memoization[1] = inputGuards;
-				}
+				// invoke the to-be-memoized function
+				memoization[0] = fn();
+				memoization[1] = inputGuards;
 			}
 
 			bucket.nextMemoizationIdx++;
@@ -451,7 +490,7 @@
 			return memoization[0];
 		}
 		else {
-			throw new Error("useMemo() only valid inside an Articulated Function or a Custom Hook.");
+			throw new Error("useMemo() only valid inside an Articulated Function or a Custom Hook");
 		}
 	}
 
@@ -460,7 +499,7 @@
 			return useMemo(function callback(){ return fn; },...inputGuards);
 		}
 		else {
-			throw new Error("useCallback() only valid inside an Articulated Function or a Custom Hook.");
+			throw new Error("useCallback() only valid inside an Articulated Function or a Custom Hook");
 		}
 	}
 
@@ -472,11 +511,11 @@
 			return ref;
 		}
 		else {
-			throw new Error("useRef() only valid inside an Articulated Function or a Custom Hook.");
+			throw new Error("useRef() only valid inside an Articulated Function or a Custom Hook");
 		}
 	}
 
-	function scheduleEvent(hooksContext,type,...args) {
+	function scheduleEventNotification(hooksContext,type,...args) {
 		var af = hooksContextAF.get(hooksContext);
 		var evts = AFevents.get(af);
 		schedule(evts.emit,[type,hooksContext,...args,]);
@@ -550,6 +589,10 @@
 	function onTick() {
 		schedulingQueue.drain();
 		tick = null;
+	}
+
+	function isFunction(v) {
+		return (typeof v == "function");
 	}
 
 });
